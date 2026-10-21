@@ -5,6 +5,8 @@ use std::ops::Range;
 
 #[cfg(feature = "folder")]
 pub mod folder;
+#[cfg(feature = "s3")]
+pub mod s3;
 
 /// Maximum stored object size, including its engine envelope.
 pub const MAX_OBJECT_BYTES: usize = 64 * 1024 * 1024 + 64;

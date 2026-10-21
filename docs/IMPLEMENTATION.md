@@ -5,7 +5,7 @@ Each completed cycle is committed separately. See git history for exact commits.
 - [x] 1. Workspace, crate boundaries, CI, and baseline decisions.
 - [x] 2. Validated public data model.
 - [x] 3. Storage contract and folder adapter.
-- [ ] 4. S3 adapter and opt-in real-service contract tests.
+- [x] 4. S3 adapter and opt-in real-service contract tests.
 - [ ] 5. Persistent formats and metadata-only snapshot opening.
 - [ ] 6. Atomic transactions and conditional publication.
 - [ ] 7. Persisted idempotency and uncertain-outcome resolution.
@@ -32,3 +32,9 @@ Cycle 3: shared storage contract and 16-way folder initialization race pass on
 macOS. Immutable overwrite protection, range bounds, one-winner head CAS, listing,
 and idempotent deletion are exercised. Workspace tests and strict Clippy pass;
 no-default-feature build passes. Folder adapter explicitly rejects non-POSIX hosts.
+
+Cycle 4: object_store 0.12.5 conditional-write source inspected; S3 adapter forces
+ETag-match publication. Two local adapter tests, all workspace tests, formatting,
+strict Clippy and no-default-feature build pass. Real S3 contract is explicitly
+ignored by default and was not run: no OBELISK_S3_BUCKET/test-prefix configuration
+or AWS environment configuration was supplied. Actual S3 verification remains open.

@@ -11,7 +11,7 @@ workspace = true
 [features]
 default = ["folder"]
 folder = ["dep:fs2"]
-s3 = []
+s3 = ["dep:object_store", "dep:futures"]
 
 [dependencies]
 async-trait.workspace = true
@@ -20,6 +20,9 @@ thiserror.workspace = true
 tokio.workspace = true
 uuid.workspace = true
 fs2 = { workspace = true, optional = true }
+
+object_store = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile.workspace = true
