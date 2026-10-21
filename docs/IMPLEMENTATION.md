@@ -7,7 +7,7 @@ Each completed cycle is committed separately. See git history for exact commits.
 - [x] 3. Storage contract and folder adapter.
 - [x] 4. S3 adapter and opt-in real-service contract tests.
 - [x] 5. Persistent formats and metadata-only snapshot opening.
-- [ ] 6. Atomic transactions and conditional publication.
+- [x] 6. Atomic transactions and conditional publication.
 - [ ] 7. Persisted idempotency and uncertain-outcome resolution.
 - [ ] 8. Public facade, examples, and usage documentation.
 - [ ] 9. Multiprocess/crash validation and baseline measurements.
@@ -44,3 +44,8 @@ round-trip, corruption/version, hostile-length, generated scalar, and arbitrary-
 decoder tests. A database with a corrupt payload opens successfully from metadata
 and reports corruption on the targeted read. Workspace tests, strict Clippy, and
 no-default-feature build pass. Historical snapshots are retained without reclamation.
+
+Cycle 6: atomic CRUD/patch batches, missing-document patches, create-if-absent,
+revision and explicit read conditions, pinned snapshots and reopen checks pass.
+Twelve concurrent disjoint writers preserve all commits. Full tests, formatting,
+strict Clippy and no-default-feature check pass. Request deduplication is cycle 7.
