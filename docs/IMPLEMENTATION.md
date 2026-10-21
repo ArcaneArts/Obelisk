@@ -4,7 +4,7 @@ Each completed cycle is committed separately. See git history for exact commits.
 
 - [x] 1. Workspace, crate boundaries, CI, and baseline decisions.
 - [x] 2. Validated public data model.
-- [ ] 3. Storage contract and folder adapter.
+- [x] 3. Storage contract and folder adapter.
 - [ ] 4. S3 adapter and opt-in real-service contract tests.
 - [ ] 5. Persistent formats and metadata-only snapshot opening.
 - [ ] 6. Atomic transactions and conditional publication.
@@ -27,3 +27,8 @@ be distinguished from process-termination tests.
 Cycle 2: six model tests pass, including generated structured-path round trips,
 field conflicts, typed empty/nested lists, invalid doubles, and duplicate batches.
 Workspace tests, formatting, strict Clippy, and no-default-feature check pass.
+
+Cycle 3: shared storage contract and 16-way folder initialization race pass on
+macOS. Immutable overwrite protection, range bounds, one-winner head CAS, listing,
+and idempotent deletion are exercised. Workspace tests and strict Clippy pass;
+no-default-feature build passes. Folder adapter explicitly rejects non-POSIX hosts.
