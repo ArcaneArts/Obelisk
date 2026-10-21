@@ -6,7 +6,7 @@ Each completed cycle is committed separately. See git history for exact commits.
 - [x] 2. Validated public data model.
 - [x] 3. Storage contract and folder adapter.
 - [x] 4. S3 adapter and opt-in real-service contract tests.
-- [ ] 5. Persistent formats and metadata-only snapshot opening.
+- [x] 5. Persistent formats and metadata-only snapshot opening.
 - [ ] 6. Atomic transactions and conditional publication.
 - [ ] 7. Persisted idempotency and uncertain-outcome resolution.
 - [ ] 8. Public facade, examples, and usage documentation.
@@ -38,3 +38,9 @@ ETag-match publication. Two local adapter tests, all workspace tests, formatting
 strict Clippy and no-default-feature build pass. Real S3 contract is explicitly
 ignored by default and was not run: no OBELISK_S3_BUCKET/test-prefix configuration
 or AWS environment configuration was supplied. Actual S3 verification remains open.
+
+Cycle 5: explicit checksummed v1 encodings and metadata-only snapshot reads pass
+round-trip, corruption/version, hostile-length, generated scalar, and arbitrary-byte
+decoder tests. A database with a corrupt payload opens successfully from metadata
+and reports corruption on the targeted read. Workspace tests, strict Clippy, and
+no-default-feature build pass. Historical snapshots are retained without reclamation.

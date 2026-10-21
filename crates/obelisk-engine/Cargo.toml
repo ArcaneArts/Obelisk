@@ -11,3 +11,15 @@ workspace = true
 [dependencies]
 obelisk-types.workspace = true
 obelisk-storage.workspace = true
+
+async-trait.workspace = true
+blake3.workspace = true
+bytes.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+proptest.workspace = true
+obelisk-storage = { workspace = true, features = ["folder"] }
