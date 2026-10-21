@@ -8,7 +8,7 @@ Each completed cycle is committed separately. See git history for exact commits.
 - [x] 4. S3 adapter and opt-in real-service contract tests.
 - [x] 5. Persistent formats and metadata-only snapshot opening.
 - [x] 6. Atomic transactions and conditional publication.
-- [ ] 7. Persisted idempotency and uncertain-outcome resolution.
+- [x] 7. Persisted idempotency and uncertain-outcome resolution.
 - [ ] 8. Public facade, examples, and usage documentation.
 - [ ] 9. Multiprocess/crash validation and baseline measurements.
 
@@ -49,3 +49,9 @@ Cycle 6: atomic CRUD/patch batches, missing-document patches, create-if-absent,
 revision and explicit read conditions, pinned snapshots and reopen checks pass.
 Twelve concurrent disjoint writers preserve all commits. Full tests, formatting,
 strict Clippy and no-default-feature check pass. Request deduplication is cycle 7.
+
+Cycle 7: canonical operation fingerprints and original receipts persist in the
+committed manifest. Twelve engine tests pass, including concurrent duplicate
+requests, reordered equivalent batches, payload reuse rejection, reopen recovery,
+lost success responses, lost resolution reads, and hidden-success conflicts with
+a one-attempt budget. Full tests, strict Clippy and feature checks pass.

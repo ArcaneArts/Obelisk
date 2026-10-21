@@ -26,6 +26,12 @@ so reads do not scan historical segments to determine absence.
 Heads identify the database, commit, sequence, immutable manifest object, and hash
 of the entire encoded manifest. Manifests repeat database/commit/sequence identity,
 identify the latest segment, and index live document locations and revisions.
+Request metadata stores each request ID, its canonical operation BLAKE3 digest,
+and the full original receipt (database/request/commit identity, sequence and
+per-document revisions). Requests have no expiration in the prototype. Fingerprints
+normalize independent mutation and read-condition order while preserving value/list
+order and explicit conditions.
+
 Metadata is rewritten per commit in this baseline; startup reads the head and one
 manifest, not history or document payloads. Metadata growth is deliberately bounded
 at 64 MiB. Decoders enforce allocation, item-count, byte and nesting limits.

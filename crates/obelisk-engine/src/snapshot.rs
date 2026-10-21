@@ -68,6 +68,7 @@ impl Engine {
                 sequence: 0,
                 latest_segment: None,
                 documents: BTreeMap::new(),
+                requests: BTreeMap::new(),
             };
             let bytes = format::encode_manifest(&manifest)?;
             let id = ObjectId::random();

@@ -34,6 +34,12 @@ pub struct Manifest {
     pub sequence: u64,
     pub latest_segment: Option<ObjectId>,
     pub documents: BTreeMap<DocumentPath, Location>,
+    pub requests: BTreeMap<RequestId, RequestRecord>,
+}
+#[derive(Debug, Clone)]
+pub struct RequestRecord {
+    pub fingerprint: [u8; 32],
+    pub receipt: CommitReceipt,
 }
 fn envelope(kind: u8, payload: Vec<u8>) -> Result<Vec<u8>> {
     if payload.len() > MAX_PAYLOAD {
@@ -313,6 +319,15 @@ pub fn encode_manifest(m: &Manifest) -> Result<Vec<u8>> {
             return Err(corrupt("metadata limit"));
         }
     }
+    w.u32(m.requests.len());
+    for (id, record) in &m.requests {
+        w.text(id.as_str());
+        w.0.extend_from_slice(&record.fingerprint);
+        write_receipt(&mut w, &record.receipt);
+        if w.0.len() > MAX_PAYLOAD {
+            return Err(corrupt("request metadata limit"));
+        }
+    }
     envelope(MANIFEST, w.0)
 }
 pub fn decode_manifest(bytes: &[u8]) -> Result<Manifest> {
@@ -345,6 +360,32 @@ pub fn decode_manifest(bytes: &[u8]) -> Result<Manifest> {
             return Err(corrupt("duplicate document location"));
         }
     }
+    let count = r.count(1_000_000, 256)?;
+    let mut requests = BTreeMap::new();
+    for _ in 0..count {
+        let id = RequestId::new(r.text(256)?)?;
+        let fingerprint = r.take(32)?.try_into().unwrap();
+        let receipt = read_receipt(&mut r)?;
+        if receipt.request_id != id
+            || receipt.database_id != database_id
+            || receipt.sequence == 0
+            || receipt.sequence > sequence
+        {
+            return Err(corrupt("invalid request receipt identity"));
+        }
+        if requests
+            .insert(
+                id,
+                RequestRecord {
+                    fingerprint,
+                    receipt,
+                },
+            )
+            .is_some()
+        {
+            return Err(corrupt("duplicate request identity"));
+        }
+    }
     r.finish()?;
     Ok(Manifest {
         database_id,
@@ -352,7 +393,107 @@ pub fn decode_manifest(bytes: &[u8]) -> Result<Manifest> {
         sequence,
         latest_segment,
         documents,
+        requests,
     })
+}
+fn write_receipt(w: &mut Writer, receipt: &CommitReceipt) {
+    w.text(receipt.database_id.as_str());
+    w.text(receipt.request_id.as_str());
+    w.text(receipt.commit_id.as_str());
+    w.u64(receipt.sequence);
+    w.u32(receipt.revisions.len());
+    for (path, revision) in &receipt.revisions {
+        w.path(path.segments());
+        w.byte(u8::from(revision.is_some()));
+        if let Some(revision) = revision {
+            w.text(revision.as_str());
+        }
+    }
+}
+fn read_receipt(r: &mut Reader<'_>) -> Result<CommitReceipt> {
+    let database_id = DatabaseId::new(r.text(256)?)?;
+    let request_id = RequestId::new(r.text(256)?)?;
+    let commit_id = CommitId::new(r.text(256)?)?;
+    let sequence = r.u64()?;
+    let count = r.count(MAX_BATCH_ITEMS, 128)?;
+    let mut revisions = BTreeMap::new();
+    for _ in 0..count {
+        let path = DocumentPath::from_segments(r.path()?)?;
+        let revision = if r.boolean()? {
+            Some(Revision::new(r.text(256)?)?)
+        } else {
+            None
+        };
+        if revision
+            .as_ref()
+            .is_some_and(|v| v.as_str() != commit_id.as_str())
+        {
+            return Err(corrupt("receipt revision identity"));
+        }
+        if revisions.insert(path, revision).is_some() {
+            return Err(corrupt("duplicate receipt path"));
+        }
+    }
+    if revisions.is_empty() {
+        return Err(corrupt("empty commit receipt"));
+    }
+    Ok(CommitReceipt {
+        database_id,
+        request_id,
+        commit_id,
+        sequence,
+        revisions,
+    })
+}
+/// Canonical operation encoding: independent mutation/condition order is normalized.
+/// Request identity is excluded, so the digest describes only the operation.
+pub fn transaction_fingerprint(transaction: &Transaction) -> Result<[u8; 32]> {
+    fn condition(w: &mut Writer, c: &Condition) {
+        match c {
+            Condition::Any => w.byte(0),
+            Condition::Absent => w.byte(1),
+            Condition::Revision(v) => {
+                w.byte(2);
+                w.text(v.as_str());
+            }
+        }
+    }
+    let mut w = Writer(b"Obelisk transaction v1".to_vec());
+    let mut mutations: Vec<_> = transaction.mutations().iter().collect();
+    mutations.sort_by(|a, b| a.path.cmp(&b.path));
+    w.u32(mutations.len());
+    for mutation in mutations {
+        w.path(mutation.path.segments());
+        condition(&mut w, &mutation.condition);
+        match &mutation.kind {
+            MutationKind::Put(d) => {
+                w.byte(0);
+                w.document(d);
+            }
+            MutationKind::Patch(p) => {
+                w.byte(1);
+                w.document(&Document::new(p.set().clone())?);
+                w.u32(p.remove().len());
+                for path in p.remove() {
+                    w.path(path.segments());
+                }
+            }
+            MutationKind::Delete => w.byte(2),
+        }
+    }
+    let mut conditions = Vec::new();
+    for c in transaction.conditions() {
+        let mut item = Writer::default();
+        item.path(c.path.segments());
+        condition(&mut item, &c.condition);
+        conditions.push(item.0);
+    }
+    conditions.sort();
+    w.u32(conditions.len());
+    for item in conditions {
+        w.bytes(&item);
+    }
+    Ok(*blake3::hash(&w.0).as_bytes())
 }
 pub fn encode_record(path: &DocumentPath, document: Option<&Document>) -> Result<Vec<u8>> {
     let mut w = Writer::default();
