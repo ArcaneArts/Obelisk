@@ -1,0 +1,28 @@
+[workspace]
+members = ["crates/obelisk", "crates/obelisk-types", "crates/obelisk-storage", "crates/obelisk-engine"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+obelisk-types = { path = "crates/obelisk-types" }
+obelisk-storage = { path = "crates/obelisk-storage", default-features = false }
+obelisk-engine = { path = "crates/obelisk-engine" }
+async-trait = "0.1"
+blake3 = "1.8"
+bytes = "1"
+fs2 = "0.4"
+futures = "0.3"
+object_store = { version = "0.12", default-features = false, features = ["aws"] }
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+uuid = { version = "1", features = ["v4"] }
+tempfile = "3"
+proptest = "1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"

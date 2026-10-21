@@ -1,0 +1,19 @@
+[package]
+name = "obelisk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = ["folder"]
+folder = ["obelisk-storage/folder"]
+s3 = ["obelisk-storage/s3"]
+
+[dependencies]
+obelisk-types.workspace = true
+obelisk-storage.workspace = true
+obelisk-engine.workspace = true
