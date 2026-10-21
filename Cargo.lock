@@ -833,6 +833,9 @@ dependencies = [
  "obelisk-engine",
  "obelisk-storage",
  "obelisk-types",
+ "tempfile",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]

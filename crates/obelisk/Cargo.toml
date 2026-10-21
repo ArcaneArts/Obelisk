@@ -17,3 +17,16 @@ s3 = ["obelisk-storage/s3"]
 obelisk-types.workspace = true
 obelisk-storage.workspace = true
 obelisk-engine.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+tempfile.workspace = true
+uuid.workspace = true
+
+[[example]]
+name = "local"
+required-features = ["folder"]
+
+[[example]]
+name = "s3"
+required-features = ["s3"]

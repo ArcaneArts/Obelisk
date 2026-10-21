@@ -9,7 +9,7 @@ Each completed cycle is committed separately. See git history for exact commits.
 - [x] 5. Persistent formats and metadata-only snapshot opening.
 - [x] 6. Atomic transactions and conditional publication.
 - [x] 7. Persisted idempotency and uncertain-outcome resolution.
-- [ ] 8. Public facade, examples, and usage documentation.
+- [x] 8. Public facade, examples, and usage documentation.
 - [ ] 9. Multiprocess/crash validation and baseline measurements.
 
 ## Evidence
@@ -55,3 +55,8 @@ committed manifest. Twelve engine tests pass, including concurrent duplicate
 requests, reordered equivalent batches, payload reuse rejection, reopen recovery,
 lost success responses, lost resolution reads, and hidden-success conflicts with
 a one-attempt budget. Full tests, strict Clippy and feature checks pass.
+
+Cycle 8: public facade lifecycle integration test passes. Local example runs
+against a real folder; S3 example compiles but is not executed without external
+configuration. Full workspace tests, formatting, strict Clippy, and feature checks
+pass. README describes operation semantics, limits, retained history and usage.
