@@ -110,4 +110,15 @@ mod tests {
         assert_eq!(updated.get(&p("z")), Some(&Value::Boolean(false)));
         assert!(Patch::new([(p("a"), Value::Integer(0))], vec![p("a")]).is_err());
     }
+    #[test]
+    fn enforces_document_resource_bounds() {
+        assert!(
+            Document::new((0..=MAX_FIELDS).map(|i| (
+                FieldPath::from_segments([i.to_string()]).unwrap(),
+                Value::Boolean(true)
+            )))
+            .is_err()
+        );
+        assert!(Document::new([(p("data"), Value::Binary(vec![0; MAX_DOCUMENT_BYTES]))]).is_err());
+    }
 }

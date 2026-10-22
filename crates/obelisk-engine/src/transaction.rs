@@ -43,6 +43,7 @@ impl Engine {
                 check(&snapshot, &mutation.path, &mutation.condition)?;
             }
             let mut records = BTreeMap::new();
+            let mut prepared_size = 4 + format::HEADER_BYTES;
             for mutation in transaction.mutations() {
                 let document = match &mutation.kind {
                     MutationKind::Put(document) => Some(document.clone()),
@@ -55,6 +56,18 @@ impl Engine {
                         Some(previous.document.apply(patch)?)
                     }
                 };
+                prepared_size += format::HEADER_BYTES
+                    + 5
+                    + mutation
+                        .path
+                        .segments()
+                        .iter()
+                        .map(|p| p.len() + 4)
+                        .sum::<usize>()
+                    + document.as_ref().map_or(Ok(0), Document::estimated_size)?;
+                if prepared_size > MAX_TRANSACTION_BYTES {
+                    return Err(Error::ResourceLimit("prepared transaction size"));
+                }
                 records.insert(mutation.path.clone(), document);
             }
             let (segment, ranges) = format::encode_segment(&records)?;
@@ -359,6 +372,8 @@ mod tests {
     struct ResponseFault {
         inner: Arc<dyn obelisk_storage::Storage>,
         mode: std::sync::atomic::AtomicU8,
+        barrier: tokio::sync::Barrier,
+        synchronized_reads: std::sync::atomic::AtomicUsize,
     }
     #[async_trait::async_trait]
     impl obelisk_storage::Storage for ResponseFault {
@@ -387,7 +402,16 @@ mod tests {
                     "injected read failure".into(),
                 ));
             }
-            self.inner.read_head().await
+            let result = self.inner.read_head().await?;
+            if self.mode.load(std::sync::atomic::Ordering::SeqCst) == 6
+                && self
+                    .synchronized_reads
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+                    < 2
+            {
+                self.barrier.wait().await;
+            }
+            Ok(result)
         }
         async fn compare_exchange_head(
             &self,
@@ -480,6 +504,8 @@ mod tests {
                         .unwrap(),
                 ),
                 mode: std::sync::atomic::AtomicU8::new(0),
+                barrier: tokio::sync::Barrier::new(2),
+                synchronized_reads: std::sync::atomic::AtomicUsize::new(0),
             });
             let db = Engine::open(
                 fault.clone(),
@@ -507,5 +533,91 @@ mod tests {
             }
             assert_eq!(db.snapshot().await.unwrap().sequence(), 1);
         }
+    }
+    #[tokio::test]
+    async fn head_conflict_recomputes_patches_from_the_latest_document() {
+        let dir = tempfile::tempdir().unwrap();
+        let fault = Arc::new(ResponseFault {
+            inner: Arc::new(
+                obelisk_storage::folder::Folder::open(dir.path())
+                    .await
+                    .unwrap(),
+            ),
+            mode: std::sync::atomic::AtomicU8::new(0),
+            barrier: tokio::sync::Barrier::new(2),
+            synchronized_reads: std::sync::atomic::AtomicUsize::new(0),
+        });
+        let db = Engine::open(fault.clone(), EngineOptions::default())
+            .await
+            .unwrap();
+        db.commit(&tx("seed", vec![put("a", 1)])).await.unwrap();
+        fault.mode.store(6, std::sync::atomic::Ordering::SeqCst);
+        let mut tasks = Vec::new();
+        for name in ["left", "right"] {
+            let db = db.clone();
+            let t = tx(
+                name,
+                vec![Mutation {
+                    path: path("a"),
+                    condition: Condition::Any,
+                    kind: MutationKind::Patch(
+                        Patch::new([(field(name), Value::Boolean(true))], vec![]).unwrap(),
+                    ),
+                }],
+            );
+            tasks.push(tokio::spawn(async move { db.commit(&t).await.unwrap() }));
+        }
+        for task in tasks {
+            task.await.unwrap();
+        }
+        let result = db.get(&path("a")).await.unwrap().unwrap();
+        assert_eq!(
+            result.document.get(&field("value")),
+            Some(&Value::Integer(1))
+        );
+        assert_eq!(
+            result.document.get(&field("left")),
+            Some(&Value::Boolean(true))
+        );
+        assert_eq!(
+            result.document.get(&field("right")),
+            Some(&Value::Boolean(true))
+        );
+        assert_eq!(db.snapshot().await.unwrap().sequence(), 3);
+    }
+    #[tokio::test]
+    async fn deleted_and_recreated_documents_never_reuse_revisions() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = engine(dir.path()).await;
+        let first = db.commit(&tx("original", vec![put("a", 1)])).await.unwrap();
+        let revision = first.revisions[&path("a")].clone().unwrap();
+        db.commit(&tx(
+            "delete",
+            vec![Mutation {
+                path: path("a"),
+                condition: Condition::Any,
+                kind: MutationKind::Delete,
+            }],
+        ))
+        .await
+        .unwrap();
+        let recreated = db.commit(&tx("recreate", vec![put("a", 1)])).await.unwrap();
+        assert_ne!(recreated.revisions[&path("a")].as_ref(), Some(&revision));
+        assert!(matches!(
+            db.commit(&tx(
+                "stale-revision",
+                vec![Mutation {
+                    condition: Condition::Revision(revision),
+                    ..put("a", 2)
+                }]
+            ))
+            .await,
+            Err(Error::RevisionConflict(_))
+        ));
+        assert_eq!(
+            db.commit(&tx("original", vec![put("a", 1)])).await.unwrap(),
+            first
+        );
+        assert_eq!(db.snapshot().await.unwrap().sequence(), 3);
     }
 }

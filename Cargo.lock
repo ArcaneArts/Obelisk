@@ -830,6 +830,8 @@ dependencies = [
 name = "obelisk"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "bytes",
  "obelisk-engine",
  "obelisk-storage",
  "obelisk-types",

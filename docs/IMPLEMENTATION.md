@@ -10,19 +10,12 @@ Each completed cycle is committed separately. See git history for exact commits.
 - [x] 6. Atomic transactions and conditional publication.
 - [x] 7. Persisted idempotency and uncertain-outcome resolution.
 - [x] 8. Public facade, examples, and usage documentation.
-- [ ] 9. Multiprocess/crash validation and baseline measurements.
+- [x] 9. Multiprocess/crash validation and baseline measurements.
 
 ## Evidence
 
 Cycle 1: workspace formatting, tests, lint, and no-default-feature build checked
 before commit. The initial libraries intentionally only establish crate boundaries.
-
-## Remaining external verification
-
-Real S3 validation requires an explicitly configured isolated bucket prefix and
-external credentials. CI does not silently substitute an emulator for real S3.
-Power-loss durability, filesystem-specific guarantees, and platform support must
-be distinguished from process-termination tests.
 
 Cycle 2: six model tests pass, including generated structured-path round trips,
 field conflicts, typed empty/nested lists, invalid doubles, and duplicate batches.
@@ -60,3 +53,65 @@ Cycle 8: public facade lifecycle integration test passes. Local example runs
 against a real folder; S3 example compiles but is not executed without external
 configuration. Full workspace tests, formatting, strict Clippy, and feature checks
 pass. README describes operation semantics, limits, retained history and usage.
+
+Cycle 9: local multiprocess harness verifies simultaneous initialization, six
+independent writers publishing 24 atomic pairs, six identical requests committing
+once, and four contending writers preserving 16 conditional increments. Nine
+commit-boundary process kills preserve acknowledged seed data, atomic visibility,
+and persisted retry receipts. A separate kill verifies OS-lock release on death.
+Deterministic same-document head conflicts recompute patches without losing fields.
+Additional tests cover delete/recreate revision identity, list-depth and document
+resource bounds, and malformed checksummed payloads. Limits are checked while
+preparing batches, metadata is validated against reader limits before publication,
+and public snapshot references are opaque.
+
+Cycle 9 checks rerun on 2026-10-22 in an isolated worktree: 29 passed; two actual-S3
+tests explicitly ignored. Formatting,
+strict Clippy with all features, facade folder-only and S3-only Clippy, and the
+no-default-feature workspace build pass. The release-mode baseline and its limits
+are recorded in [BASELINE.md](BASELINE.md). Logical adapter counters are available
+through `obelisk::storage::metrics::InstrumentedStorage`.
+
+## Cycle commits
+
+| Cycle | Commit | Capability |
+| --- | --- | --- |
+| 1 | `6b11aaf` | Workspace and decisions |
+| 2 | `628ef80` | Validated public model |
+| 3 | `f80e6e2` | Folder adapter and shared contract |
+| 4 | `c5bd30c` | S3 adapter and opt-in contract |
+| 5 | `2d1d35d` | Formats and snapshots |
+| 6 | `6e194cf` | Atomic transactions |
+| 7 | `ffbbd97` | Idempotency and uncertain outcomes |
+| 8 | `afba0e6` | Public API and examples |
+| 9 | This document's commit | Multiprocess/crash harness, counters and measurements |
+
+## Follow-up found during review
+
+A writer can die after renaming HEAD but before syncing its directory. An already
+open reader must complete that durability barrier before returning a head that
+can resolve a request as successful. Cycle 10 will add the barrier and exercise
+this adapter-internal crash window separately from cycle 9's engine boundaries.
+
+## Acceptance still open
+
+The local baseline is implemented and verified on macOS. Overall acceptance is
+**incomplete** until the actual-S3 storage contract and multiprocess recovery suite
+run successfully with a configured isolated bucket prefix and external credentials.
+No test bucket/prefix was supplied in this session; neither real S3 nor an emulator
+was exercised. The S3 source and adapter logic were inspected/tested locally.
+
+CI definitions cover Linux, macOS and Windows, but remote CI has not run in this
+session. Folder durability is limited to local POSIX filesystems; Windows folder
+opening explicitly returns unsupported. Network filesystems and hardware power-loss
+durability remain unverified. Process termination tests cover engine operation
+boundaries, not every instruction within filesystem or transport implementations.
+
+History, orphaned uploads, request outcomes, and abandoned temporary files are not
+automatically reclaimed. Metadata is fully rewritten per commit, bounded to 64 MiB;
+its growth and single-head contention limit this prototype. Queries, indexes,
+compaction, reclamation, backup/restore and transport remain deferred as scoped.
+
+Next milestone: complete actual-S3 qualification, then build hierarchy/field indexes
+with transactional maintenance and plan shared metadata pages and compaction using
+the measured contention and metadata-growth evidence.

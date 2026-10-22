@@ -46,6 +46,10 @@ pub struct Engine {
     pub(crate) store: Arc<dyn Storage>,
     pub(crate) options: EngineOptions,
 }
+/// Opaque reference obtained from a committed snapshot. Applications cannot
+/// construct a reference to an unpublished prepared manifest.
+#[derive(Debug, Clone)]
+pub struct SnapshotReference(HeadRef);
 #[derive(Debug, Clone)]
 pub struct Snapshot {
     pub(crate) store: Arc<dyn Storage>,
@@ -110,7 +114,8 @@ impl Engine {
         self.load_snapshot(reference, head.version).await
     }
     /// Opens a retained manifest by its immutable identity and integrity hash.
-    pub async fn snapshot_at(&self, reference: HeadRef) -> Result<Snapshot> {
+    pub async fn snapshot_at(&self, reference: SnapshotReference) -> Result<Snapshot> {
+        let reference = reference.0;
         let current = self.snapshot().await?;
         if reference.database_id != current.manifest.database_id {
             return Err(corrupt("snapshot belongs to another database"));
@@ -151,8 +156,8 @@ impl Snapshot {
     pub fn sequence(&self) -> u64 {
         self.manifest.sequence
     }
-    pub fn reference(&self) -> HeadRef {
-        self.reference.clone()
+    pub fn reference(&self) -> SnapshotReference {
+        SnapshotReference(self.reference.clone())
     }
     pub fn revision(&self, path: &DocumentPath) -> Option<&Revision> {
         self.manifest.documents.get(path).map(|l| &l.revision)

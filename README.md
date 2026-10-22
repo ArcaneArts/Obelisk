@@ -81,4 +81,5 @@ cargo check --workspace --no-default-features --locked
 - [Architecture](docs/PLAN.md)
 - [Baseline decisions](docs/DECISIONS.md)
 - [Persistent format](docs/FORMAT.md)
+- [Validation and measured baseline](docs/BASELINE.md)
 - [Implementation checklist and verification gaps](docs/IMPLEMENTATION.md)

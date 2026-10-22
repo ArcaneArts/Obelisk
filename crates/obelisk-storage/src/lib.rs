@@ -1,4 +1,5 @@
 //! Byte-oriented contract. No document or transaction semantics live here.
+pub mod metrics;
 use async_trait::async_trait;
 use bytes::Bytes;
 use std::ops::Range;
