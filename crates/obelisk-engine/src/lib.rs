@@ -2,8 +2,10 @@
 pub mod format;
 mod limits;
 pub mod metadata;
+mod query;
 mod snapshot;
 pub use limits::ResourceLimits;
+pub use query::{QueryCursor, QueryPage};
 mod transaction;
 use obelisk_types::{DocumentPath, RequestId};
 pub use snapshot::{Engine, EngineOptions, Snapshot, SnapshotReference};
@@ -24,6 +26,8 @@ pub enum Error {
     MissingDocument(DocumentPath),
     #[error("request ID used for a different transaction: {0}")]
     RequestIdReuse(RequestId),
+    #[error("invalid query cursor: {0}")]
+    InvalidCursor(&'static str),
     #[error("resource limit: {0}")]
     ResourceLimit(&'static str),
     #[error("retry budget exhausted")]
