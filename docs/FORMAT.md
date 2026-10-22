@@ -1,4 +1,10 @@
-# Prototype format v1
+# Prototype persistent formats
+
+Fresh databases use v2 HEAD/root and paged metadata. The production engine rejects
+v1 databases without migration. The v1 section below documents unchanged document
+records/fingerprints and the former manifest layout for compatibility tests.
+
+## Baseline format v1
 
 All lengths/counts are unsigned u32 and all fixed integers are little endian.
 An envelope is `OBLS` (4 bytes), kind (u8), version (u16 = 1), payload length
@@ -40,12 +46,12 @@ UUID object identifiers are physical keys, independent of logical paths. Revisio
 and commit identities never depend on wall clocks. Folder HEAD additionally wraps
 the engine head with a UUID storage-version token; S3 uses its opaque ETag.
 
-## Additive paged metadata formats (not yet used by the v1 writer)
+## Paged metadata format v2
 
 The primitives in `obelisk-engine::metadata` define root manifest kind 2/version 2,
 page kind 5/version 1, and request-outcome kind 6/version 1. Envelopes keep the
-43-byte checksummed header. The current engine still reads/writes v1 databases;
-this cycle alone changes no database format on disk.
+43-byte checksummed header. The engine writes only v2 databases. It rejects a v1
+HEAD before preparing objects for an existing database; older v1 readers reject a v2 HEAD.
 
 A root repeats database/commit identity and sequence, requires capability mask 1
 (parent membership maintained), then stores three optional page references in
@@ -67,6 +73,17 @@ parent has only the additional NUL. Prefix successors give exclusive range ends.
 These key encodings differ from the v1 length-prefixed round-trip path encoding.
 
 An outcome object contains the canonical fingerprint followed by the original v1
-receipt encoding. It is bounded to 2 MiB rather than to the 64 KiB page size. The
-engine integration cycle will define the document-location and outcome-reference
-leaf value encodings and switch HEAD explicitly, without automatic migration.
+receipt encoding. It is bounded to 2 MiB rather than to the 64 KiB page size.
+A document-location leaf value contains the canonical segment UUID string,
+u64 byte-range start/end, and revision string; ranges must identify a bounded live
+record. Request leaf values contain the fingerprint and outcome object reference.
+Membership leaf values are empty presence markers, with the path reconstructed
+from the key. These trees are published atomically, including membership from the
+first paged-format write.
+
+HEAD kind 1/version 2 contains database/commit identity, sequence, and the root
+object reference (including bounded length and integrity hash). Root identities
+must agree with HEAD. The root's capability mask requires membership maintenance.
+Only this small root is loaded on snapshot opening; all trees are lazy. Internal
+metadata-only publications use the same CAS/durability path without changing
+original document revisions or application receipts.

@@ -4,7 +4,7 @@
 //! multi-document reads. Successful request IDs and outcomes are retained
 //! indefinitely; retry uncertain writes with the same request ID and payload.
 pub use obelisk_engine::{
-    EngineOptions as DatabaseOptions, Error, Result, Snapshot, SnapshotReference,
+    EngineOptions as DatabaseOptions, Error, ResourceLimits, Result, Snapshot, SnapshotReference,
 };
 pub use obelisk_storage as storage;
 pub use obelisk_types::*;

@@ -10,7 +10,7 @@ use std::{
     process::{Child, Command, Stdio},
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -145,7 +145,6 @@ fn gate(ready: &Path, release: &Path, label: &str) {
 struct FaultStore {
     inner: Arc<dyn Storage>,
     armed: AtomicBool,
-    creates: AtomicUsize,
     stage: String,
     ready: PathBuf,
     release: PathBuf,
@@ -164,9 +163,8 @@ impl Storage for FaultStore {
         id: ObjectId,
         range: Option<std::ops::Range<u64>>,
     ) -> storage::Result<bytes::Bytes> {
-        let metadata = range.is_none();
         let bytes = self.inner.read(id, range).await?;
-        if metadata {
+        if bytes.get(4) == Some(&2) {
             self.point("after-snapshot-read");
         }
         Ok(bytes)
@@ -175,18 +173,16 @@ impl Storage for FaultStore {
         if !self.armed.load(Ordering::SeqCst) {
             return self.inner.create(id, bytes).await;
         }
-        let first = self.creates.fetch_add(1, Ordering::SeqCst) == 0;
-        self.point(if first {
-            "before-segment"
-        } else {
-            "before-manifest"
-        });
+        let (before, after) = match bytes.get(4) {
+            Some(3) => ("before-segment", "after-segment"),
+            Some(2) => ("before-manifest", "after-manifest"),
+            Some(5) => ("before-page", "after-page"),
+            Some(6) => ("before-outcome", "after-outcome"),
+            _ => panic!("unexpected prepared object kind"),
+        };
+        self.point(before);
         self.inner.create(id, bytes).await?;
-        self.point(if first {
-            "after-segment"
-        } else {
-            "after-manifest"
-        });
+        self.point(after);
         Ok(())
     }
     async fn read_head(&self) -> storage::Result<Option<storage::Head>> {
@@ -232,7 +228,6 @@ fn worker_process() {
         let fault = Arc::new(FaultStore {
             inner: backend.store().await,
             armed: AtomicBool::new(false),
-            creates: AtomicUsize::new(0),
             stage: stage.clone(),
             ready: ready.clone(),
             release: release.clone(),
@@ -493,6 +488,10 @@ async fn suite(backend: Backend, signals: &Path) {
         "after-segment",
         "before-manifest",
         "after-manifest",
+        "before-page",
+        "after-page",
+        "before-outcome",
+        "after-outcome",
         "before-publication",
         "after-publication",
         "after-ack",

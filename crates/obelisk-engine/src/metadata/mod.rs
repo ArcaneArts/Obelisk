@@ -1,10 +1,12 @@
-//! Immutable ordered metadata primitives. The v1 production writer is integrated
-//! separately; these objects never publish HEAD or reclaim historical objects.
+//! Immutable ordered metadata primitives for the paged engine. Tree operations
+//! never publish HEAD or reclaim historical objects.
 mod codec;
+pub(crate) use codec::decode_outcome_budget;
 mod key;
 mod tree;
 pub use codec::{
-    ObjectRef, PageRef, Root, decode_outcome, decode_root, encode_outcome, encode_root,
+    HeadRef, ObjectRef, OutcomeRef, PageRef, Root, decode_head, decode_location, decode_outcome,
+    decode_root, encode_head, encode_location, encode_outcome, encode_root,
 };
 pub use key::{
     document_key, document_path, membership_key, membership_path, parent_prefix, prefix_end,

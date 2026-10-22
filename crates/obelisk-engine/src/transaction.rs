@@ -1,13 +1,13 @@
 use crate::{
-    Engine, Error, Result, Snapshot,
-    format::{self, HeadRef, Location, RequestRecord},
+    Engine, Error, Result, Snapshot, corrupt,
+    format::{self, Location, RequestRecord},
+    metadata::{self, Budget, Family, ObjectRef, OutcomeRef},
 };
 use obelisk_storage::ObjectId;
 use obelisk_types::*;
 use std::collections::BTreeMap;
 
-fn check(snapshot: &Snapshot, path: &DocumentPath, condition: &Condition) -> Result<()> {
-    let revision = snapshot.revision(path);
+fn check(path: &DocumentPath, condition: &Condition, revision: Option<&Revision>) -> Result<()> {
     let matches = match condition {
         Condition::Any => true,
         Condition::Absent => revision.is_none(),
@@ -20,39 +20,67 @@ fn check(snapshot: &Snapshot, path: &DocumentPath, condition: &Condition) -> Res
     }
 }
 impl Engine {
-    /// Atomically publishes deterministic mutations against one starting snapshot.
-    /// Successful requests are deduplicated before evaluating revision conditions.
+    /// Deduplicate against committed outcomes before evaluating any conditions.
     pub async fn commit(&self, transaction: &Transaction) -> Result<CommitReceipt> {
         let fingerprint = format::transaction_fingerprint(transaction)?;
         let mut publication_attempted = false;
         for attempt in 0..self.options.max_attempts {
-            let snapshot = self.snapshot().await.map_err(|e| {
+            let mut budget = self.options.resources.budget();
+            let snapshot = self.snapshot_with_budget(&mut budget).await.map_err(|e| {
                 if publication_attempted {
                     uncertain(transaction, e.to_string())
                 } else {
                     e
                 }
             })?;
-            if let Some(receipt) = existing(&snapshot, transaction, &fingerprint)? {
+            if let Some(receipt) = existing(&snapshot, transaction, &fingerprint, &mut budget)
+                .await
+                .map_err(|e| {
+                    if publication_attempted && !matches!(e, Error::RequestIdReuse(_)) {
+                        uncertain(transaction, e.to_string())
+                    } else {
+                        e
+                    }
+                })?
+            {
                 return Ok(receipt);
             }
             for condition in transaction.conditions() {
-                check(&snapshot, &condition.path, &condition.condition)?;
+                let location = snapshot.location(&condition.path, &mut budget).await?;
+                check(
+                    &condition.path,
+                    &condition.condition,
+                    location.as_ref().map(|l| &l.revision),
+                )?;
             }
+            let mut previous = BTreeMap::new();
             for mutation in transaction.mutations() {
-                check(&snapshot, &mutation.path, &mutation.condition)?;
+                let location = snapshot.location(&mutation.path, &mut budget).await?;
+                check(
+                    &mutation.path,
+                    &mutation.condition,
+                    location.as_ref().map(|l| &l.revision),
+                )?;
+                previous.insert(mutation.path.clone(), location.is_some());
             }
             let mut records = BTreeMap::new();
             let mut prepared_size = 4 + format::HEADER_BYTES;
             for mutation in transaction.mutations() {
                 let document = match &mutation.kind {
-                    MutationKind::Put(document) => Some(document.clone()),
+                    MutationKind::Put(document) => {
+                        budget.charge_decoded(format::document_allocation(document))?;
+                        Some(document.clone())
+                    }
                     MutationKind::Delete => None,
                     MutationKind::Patch(patch) => {
                         let previous = snapshot
-                            .get(&mutation.path)
+                            .get_with_budget(&mutation.path, &mut budget)
                             .await?
                             .ok_or_else(|| Error::MissingDocument(mutation.path.clone()))?;
+                        budget.charge_decoded(
+                            format::document_allocation(&previous.document)
+                                + format::fields_allocation(patch.set()),
+                        )?;
                         Some(previous.document.apply(patch)?)
                     }
                 };
@@ -70,75 +98,139 @@ impl Engine {
                 }
                 records.insert(mutation.path.clone(), document);
             }
+            budget.charge_decoded(prepared_size)?;
             let (segment, ranges) = format::encode_segment(&records)?;
             if segment.len() > MAX_TRANSACTION_BYTES {
-                return Err(ValidationError("prepared transaction byte limit".into()).into());
+                return Err(Error::ResourceLimit("prepared transaction bytes"));
+            }
+            // Validate newly prepared records against this operation's reader budget.
+            for range in ranges.values() {
+                format::decode_record_budget(
+                    &segment[range.start as usize..range.end as usize],
+                    &mut budget.decoded,
+                )?;
             }
             let segment_id = ObjectId::random();
             let commit_id = CommitId::new(uuid::Uuid::new_v4().to_string())?;
             let revision = Revision::new(commit_id.as_str())?;
-            let mut manifest = snapshot.manifest.clone();
-            manifest.sequence = manifest
+            let mut root = snapshot.manifest.clone();
+            root.sequence = root
                 .sequence
                 .checked_add(1)
-                .ok_or_else(|| crate::corrupt("commit sequence overflow"))?;
-            manifest.commit_id = commit_id.clone();
-            manifest.latest_segment = Some(segment_id);
+                .ok_or_else(|| corrupt("commit sequence overflow"))?;
+            root.commit_id = commit_id.clone();
+            let mut documents = metadata::Changes::new();
+            let mut membership = metadata::Changes::new();
             let mut revisions = BTreeMap::new();
             for (path, document) in &records {
-                if document.is_some() {
-                    manifest.documents.insert(
-                        path.clone(),
-                        Location {
-                            object: segment_id,
-                            range: ranges[path].clone(),
-                            revision: revision.clone(),
-                        },
-                    );
-                    revisions.insert(path.clone(), Some(revision.clone()));
+                let value = if document.is_some() {
+                    Some(metadata::encode_location(&Location {
+                        object: segment_id,
+                        range: ranges[path].clone(),
+                        revision: revision.clone(),
+                    })?)
                 } else {
-                    manifest.documents.remove(path);
-                    revisions.insert(path.clone(), None);
+                    None
+                };
+                documents.insert(metadata::document_key(path), value);
+                if previous[path] != document.is_some() {
+                    membership.insert(
+                        metadata::membership_key(path),
+                        document.as_ref().map(|_| Vec::new()),
+                    );
                 }
+                revisions.insert(path.clone(), document.as_ref().map(|_| revision.clone()));
             }
             let receipt = CommitReceipt {
-                database_id: manifest.database_id.clone(),
+                database_id: root.database_id.clone(),
                 request_id: transaction.request_id().clone(),
-                commit_id: commit_id.clone(),
-                sequence: manifest.sequence,
+                commit_id,
+                sequence: root.sequence,
                 revisions,
             };
-            manifest.requests.insert(
-                transaction.request_id().clone(),
-                RequestRecord {
-                    fingerprint,
-                    receipt: receipt.clone(),
-                },
-            );
-            let manifest_bytes = format::encode_manifest(&manifest)?;
-            let manifest_id = ObjectId::random();
-            let head = HeadRef {
-                database_id: manifest.database_id.clone(),
-                commit_id,
-                sequence: manifest.sequence,
-                manifest: manifest_id,
-                manifest_hash: *blake3::hash(&manifest_bytes).as_bytes(),
+            let receipt_memory = 1024
+                + receipt
+                    .revisions
+                    .keys()
+                    .map(|path| {
+                        1024 + path.segments().len() * 64
+                            + path.segments().iter().map(String::len).sum::<usize>()
+                    })
+                    .sum::<usize>();
+            budget.charge_decoded(receipt_memory * 3)?;
+            let outcome = metadata::encode_outcome(&RequestRecord {
+                fingerprint,
+                receipt: receipt.clone(),
+            })?;
+            budget.charge_decoded(outcome.len() * 2)?;
+            metadata::charge(
+                &mut budget.prepared,
+                outcome.len(),
+                "prepared receipt bytes",
+            )?;
+            let outcome_id = ObjectId::random();
+            let outcome_ref = OutcomeRef {
+                fingerprint,
+                blob: ObjectRef::new(outcome_id, &outcome),
             };
-            self.store.create(segment_id, segment.into()).await?;
-            self.store
-                .create(manifest_id, manifest_bytes.into())
-                .await?;
-            publication_attempted = true;
+            let requests = BTreeMap::from([(
+                transaction.request_id().as_str().as_bytes().to_vec(),
+                Some(outcome_ref.encode()?),
+            )]);
+            let docs = metadata::prepare(
+                self.store.as_ref(),
+                Family::Documents,
+                root.documents.as_ref(),
+                &documents,
+                &mut budget,
+            )
+            .await?;
+            let members = metadata::prepare(
+                self.store.as_ref(),
+                Family::Membership,
+                root.membership.as_ref(),
+                &membership,
+                &mut budget,
+            )
+            .await?;
+            let requests = metadata::prepare(
+                self.store.as_ref(),
+                Family::Requests,
+                root.requests.as_ref(),
+                &requests,
+                &mut budget,
+            )
+            .await?;
+            root.documents = docs.root;
+            root.membership = members.root;
+            root.requests = requests.root;
+            let mut objects = vec![(segment_id, segment.into()), (outcome_id, outcome.into())];
+            objects.extend(docs.objects);
+            objects.extend(members.objects);
+            objects.extend(requests.objects);
             match self
-                .store
-                .compare_exchange_head(Some(&snapshot.version), format::encode_head(&head)?.into())
+                .publish_root(
+                    &snapshot,
+                    &root,
+                    objects,
+                    &mut budget,
+                    &mut publication_attempted,
+                )
                 .await
             {
-                Ok(_) => return Ok(receipt),
-                Err(obelisk_storage::Error::Conflict) => self.options.backoff(attempt).await,
+                Ok(()) => return Ok(receipt),
+                Err(Error::Storage(obelisk_storage::Error::Conflict)) => {
+                    self.options.backoff(attempt).await
+                }
                 Err(error) => {
-                    if let Ok(snapshot) = self.snapshot().await
-                        && let Some(receipt) = existing(&snapshot, transaction, &fingerprint)?
+                    if !publication_attempted {
+                        return Err(error);
+                    }
+                    let mut resolve_budget = self.options.resources.budget();
+                    if let Ok(snapshot) = self.snapshot_with_budget(&mut resolve_budget).await
+                        && let Ok(Some(receipt)) =
+                            existing(&snapshot, transaction, &fingerprint, &mut resolve_budget)
+                                .await
                     {
                         return Ok(receipt);
                     }
@@ -146,25 +238,35 @@ impl Engine {
                 }
             }
         }
+        let mut budget = self.options.resources.budget();
         let snapshot = self
-            .snapshot()
+            .snapshot_with_budget(&mut budget)
             .await
             .map_err(|e| uncertain(transaction, e.to_string()))?;
-        match existing(&snapshot, transaction, &fingerprint)? {
-            Some(receipt) => Ok(receipt),
-            None => Err(Error::RetryExhausted),
-        }
+        existing(&snapshot, transaction, &fingerprint, &mut budget)
+            .await
+            .map_err(|e| {
+                if matches!(e, Error::RequestIdReuse(_)) {
+                    e
+                } else {
+                    uncertain(transaction, e.to_string())
+                }
+            })?
+            .ok_or(Error::RetryExhausted)
     }
-    /// None means this fresh snapshot has no recorded outcome. An in-flight
-    /// request may still publish; retry only the same transaction/request ID.
+    /// None does not rule out an in-flight request. Retry only the same operation.
     pub async fn resolve(&self, request_id: &RequestId) -> Result<Option<CommitReceipt>> {
-        Ok(self
-            .snapshot()
-            .await?
-            .manifest
-            .requests
-            .get(request_id)
-            .map(|r| r.receipt.clone()))
+        let mut budget = self.options.resources.budget();
+        let snapshot = self.snapshot_with_budget(&mut budget).await?;
+        let Some(reference) = snapshot.outcome_ref(request_id, &mut budget).await? else {
+            return Ok(None);
+        };
+        Ok(Some(
+            snapshot
+                .outcome(request_id, &reference, &mut budget)
+                .await?
+                .receipt,
+        ))
     }
 }
 fn uncertain(transaction: &Transaction, reason: String) -> Error {
@@ -173,18 +275,28 @@ fn uncertain(transaction: &Transaction, reason: String) -> Error {
         reason,
     }
 }
-fn existing(
+async fn existing(
     snapshot: &Snapshot,
     transaction: &Transaction,
     fingerprint: &[u8; 32],
+    budget: &mut Budget,
 ) -> Result<Option<CommitReceipt>> {
-    match snapshot.manifest.requests.get(transaction.request_id()) {
-        None => Ok(None),
-        Some(record) if &record.fingerprint == fingerprint => Ok(Some(record.receipt.clone())),
-        Some(_) => Err(Error::RequestIdReuse(transaction.request_id().clone())),
+    let Some(reference) = snapshot
+        .outcome_ref(transaction.request_id(), budget)
+        .await?
+    else {
+        return Ok(None);
+    };
+    if &reference.fingerprint != fingerprint {
+        return Err(Error::RequestIdReuse(transaction.request_id().clone()));
     }
+    Ok(Some(
+        snapshot
+            .outcome(transaction.request_id(), &reference, budget)
+            .await?
+            .receipt,
+    ))
 }
-
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
@@ -229,7 +341,7 @@ mod tests {
         assert_eq!(receipt.sequence, 1);
         assert!(before.get(&path("a")).await.unwrap().is_none());
         let pinned = db.snapshot().await.unwrap();
-        let revision = pinned.revision(&path("a")).unwrap().clone();
+        let revision = pinned.revision(&path("a")).await.unwrap().unwrap();
         let patch = Patch::new([(field("other"), Value::Boolean(true))], vec![]).unwrap();
         db.commit(&tx(
             "patch",

@@ -166,6 +166,15 @@ impl<'a> Reader<'a> {
             budget: MAX_DECODE_BUDGET,
         }
     }
+    pub(crate) fn bounded(input: &'a [u8], budget: usize) -> Self {
+        Self {
+            input,
+            budget: budget.min(MAX_DECODE_BUDGET),
+        }
+    }
+    pub(crate) fn remaining(&self) -> usize {
+        self.budget
+    }
     fn charge(&mut self, n: usize) -> Result<()> {
         self.budget = self
             .budget
@@ -533,24 +542,33 @@ pub fn encode_record(path: &DocumentPath, document: Option<&Document>) -> Result
     envelope(RECORD, w.0)
 }
 pub fn decode_record(bytes: &[u8]) -> Result<(DocumentPath, Option<Document>)> {
+    let mut budget = MAX_DECODE_BUDGET;
+    decode_record_budget(bytes, &mut budget)
+}
+pub(crate) fn decode_record_budget(
+    bytes: &[u8],
+    budget: &mut usize,
+) -> Result<(DocumentPath, Option<Document>)> {
     if bytes.len() > MAX_DOCUMENT_BYTES + MAX_PATH_BYTES + 1024 {
         return Err(corrupt("document record byte limit"));
     }
-    decode_record_inner(bytes).map_err(|error| match error {
-        Error::Validation(error) => Error::Corrupt(error.to_string()),
-        other => other,
+    let result = (|| {
+        let initial = (*budget).min(MAX_DECODE_BUDGET);
+        let mut r = Reader::bounded(payload(bytes, RECORD)?, initial);
+        let p = DocumentPath::from_segments(r.path()?)?;
+        let d = if r.boolean()? {
+            Some(r.document()?)
+        } else {
+            None
+        };
+        *budget -= initial - r.remaining();
+        r.finish()?;
+        Ok((p, d))
+    })();
+    result.map_err(|error| match error {
+        Error::Validation(e) => corrupt(&e.to_string()),
+        e => e,
     })
-}
-fn decode_record_inner(bytes: &[u8]) -> Result<(DocumentPath, Option<Document>)> {
-    let mut r = Reader::new(payload(bytes, RECORD)?);
-    let p = DocumentPath::from_segments(r.path()?)?;
-    let d = if r.boolean()? {
-        Some(r.document()?)
-    } else {
-        None
-    };
-    r.finish()?;
-    Ok((p, d))
 }
 pub type SegmentLocations = BTreeMap<DocumentPath, Range<u64>>;
 /// A sorted immutable batch of independently checksummed document/tombstone records.
@@ -567,6 +585,40 @@ pub fn encode_segment(
         locations.insert(path.clone(), start..(HEADER_BYTES + w.0.len()) as u64);
     }
     Ok((envelope(SEGMENT, w.0)?, locations))
+}
+
+/// Conservative retained heap charge used before cloning caller-owned documents.
+pub(crate) fn document_allocation(document: &Document) -> usize {
+    fields_allocation(document.fields())
+}
+pub(crate) fn fields_allocation(fields: &BTreeMap<FieldPath, Value>) -> usize {
+    fn type_heap(ty: &ValueType) -> usize {
+        match ty {
+            ValueType::List(inner) => std::mem::size_of::<ValueType>() + type_heap(inner),
+            _ => 0,
+        }
+    }
+    fn heap(value: &Value) -> usize {
+        match value {
+            Value::Binary(v) => v.len(),
+            Value::String(v) => v.len(),
+            Value::List(list) => {
+                std::mem::size_of_val(list.values())
+                    + type_heap(list.element_type())
+                    + list.values().iter().map(heap).sum::<usize>()
+            }
+            _ => 0,
+        }
+    }
+    128 + fields
+        .iter()
+        .map(|(path, value)| {
+            128 + std::mem::size_of::<Value>()
+                + std::mem::size_of_val(path.segments())
+                + path.segments().iter().map(String::len).sum::<usize>()
+                + heap(value)
+        })
+        .sum::<usize>()
 }
 
 #[cfg(test)]

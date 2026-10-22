@@ -1,7 +1,9 @@
 //! Snapshot and transaction engine. Persistent formats belong to this crate.
 pub mod format;
+mod limits;
 pub mod metadata;
 mod snapshot;
+pub use limits::ResourceLimits;
 mod transaction;
 use obelisk_types::{DocumentPath, RequestId};
 pub use snapshot::{Engine, EngineOptions, Snapshot, SnapshotReference};
@@ -38,3 +40,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub(crate) fn corrupt(message: &str) -> Error {
     Error::Corrupt(message.into())
 }
+
+#[cfg(test)]
+mod paged_tests;
