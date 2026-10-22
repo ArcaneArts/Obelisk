@@ -3,6 +3,7 @@
 //! Latest reads fetch the authoritative head. Use a Snapshot for consistent
 //! multi-document reads. Successful request IDs and outcomes are retained
 //! indefinitely; retry uncertain writes with the same request ID and payload.
+pub use obelisk_engine::diagnostics;
 pub use obelisk_engine::{
     EngineOptions as DatabaseOptions, Error, QueryCursor, QueryPage, ResourceLimits, Result,
     Snapshot, SnapshotReference,

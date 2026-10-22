@@ -1,0 +1,96 @@
+Observed POSIX-folder release workload, 2026-10-22.
+See ../BASELINE.md for environment, command, interpretation, and limitations.
+Progress messages and compiler output omitted; measurements preserved.
+
+Scaling: 1024-byte binary payload, batch <=256, no engine cache; live document sizes then one-document request histories. OS caches are not flushed.
+| Operation | Size | ms | Object reads | Metadata bytes incl HEAD | Payload bytes | Tree pages read | Reader decode charge* | Objects created | Bytes written incl HEAD | CAS | Conflicts |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| open-live | 100 | 0.623 | 1 | 795 | 0 | 0 | 1274 | 0 | 0 | 0 | 0 |
+| point | 100 | 9.123 | 3 | 12437 | 1116 | 1 | 31372 | 0 | 0 | 0 | 0 |
+| bulk-100 | 100 | 44.173 | 201 | 1185488 | 111600 | 100 | 3011074 | 0 | 0 | 0 | 0 |
+| children-100 | 100 | 27.205 | 202 | 1187837 | 111600 | 101 | 3022172 | 0 | 0 | 0 | 0 |
+| descendants-100 | 100 | 17.363 | 102 | 12437 | 111600 | 1 | 31372 | 0 | 0 | 0 | 0 |
+| resolve | 100 | 6.532 | 3 | 7436 | 0 | 1 | 1680 | 0 | 0 | 0 | 0 |
+| update-one | 100 | 81.508 | 5 | 24628 | 0 | 4 | 62282 | 5 | 14141 | 1 | 0 |
+latency fill-batch: size=100, samples=1, p50=90.347 ms, p95=90.347 ms, p99=90.347 ms
+latency open-live: size=100, samples=8, p50=13.494 ms, p95=20.262 ms, p99=20.262 ms
+latency point: size=100, samples=8, p50=7.081 ms, p95=12.599 ms, p99=12.599 ms
+latency children-100: size=100, samples=8, p50=55.085 ms, p95=163.355 ms, p99=163.355 ms
+latency descendants-100: size=100, samples=8, p50=15.576 ms, p95=24.690 ms, p99=24.690 ms
+| open-live | 1000 | 15.197 | 1 | 795 | 0 | 0 | 1274 | 0 | 0 | 0 | 0 |
+| point | 1000 | 16.368 | 4 | 17794 | 1116 | 2 | 45030 | 0 | 0 | 0 | 0 |
+| bulk-100 | 1000 | 255.494 | 301 | 1721188 | 111600 | 200 | 4376874 | 0 | 0 | 0 | 0 |
+| children-100 | 1000 | 80.312 | 303 | 1737824 | 111600 | 202 | 4455714 | 0 | 0 | 0 | 0 |
+| descendants-100 | 1000 | 28.732 | 103 | 17794 | 111600 | 2 | 45030 | 0 | 0 | 0 | 0 |
+| resolve | 1000 | 6.039 | 3 | 10139 | 0 | 1 | 3242 | 0 | 0 | 0 | 0 |
+| update-one | 1000 | 83.838 | 7 | 36584 | 0 | 6 | 92722 | 6 | 20121 | 1 | 0 |
+latency fill-batch: size=1000, samples=4, p50=246.393 ms, p95=600.455 ms, p99=600.455 ms
+latency open-live: size=1000, samples=8, p50=0.410 ms, p95=6.017 ms, p99=6.017 ms
+latency point: size=1000, samples=8, p50=0.679 ms, p95=5.146 ms, p99=5.146 ms
+latency children-100: size=1000, samples=8, p50=32.066 ms, p95=47.869 ms, p99=47.869 ms
+latency descendants-100: size=1000, samples=8, p50=11.140 ms, p95=26.343 ms, p99=26.343 ms
+| open-live | 10000 | 4.488 | 1 | 795 | 0 | 0 | 1274 | 0 | 0 | 0 | 0 |
+| point | 10000 | 29.799 | 4 | 24489 | 1116 | 2 | 62580 | 0 | 0 | 0 | 0 |
+| bulk-100 | 10000 | 108.444 | 301 | 2390688 | 111600 | 200 | 6131874 | 0 | 0 | 0 | 0 |
+| children-100 | 10000 | 89.778 | 303 | 2408676 | 111600 | 202 | 6214250 | 0 | 0 | 0 | 0 |
+| descendants-100 | 10000 | 17.602 | 103 | 24489 | 111600 | 2 | 62580 | 0 | 0 | 0 | 0 |
+| resolve | 10000 | 4.433 | 3 | 8786 | 0 | 1 | 14862 | 0 | 0 | 0 | 0 |
+| update-one | 10000 | 75.432 | 7 | 59226 | 0 | 6 | 151062 | 6 | 31444 | 1 | 0 |
+latency fill-batch: size=10000, samples=36, p50=190.148 ms, p95=315.081 ms, p99=321.137 ms
+latency open-live: size=10000, samples=8, p50=9.695 ms, p95=20.010 ms, p99=20.010 ms
+latency point: size=10000, samples=8, p50=5.866 ms, p95=7.950 ms, p99=7.950 ms
+latency children-100: size=10000, samples=8, p50=47.404 ms, p95=66.624 ms, p99=66.624 ms
+latency descendants-100: size=10000, samples=8, p50=9.279 ms, p95=12.893 ms, p99=12.893 ms
+| open-live | 100000 | 9.073 | 1 | 795 | 0 | 0 | 1274 | 0 | 0 | 0 | 0 |
+| point | 100000 | 7.374 | 5 | 33808 | 1116 | 3 | 86978 | 0 | 0 | 0 | 0 |
+| bulk-100 | 100000 | 134.706 | 401 | 3322588 | 111600 | 300 | 8571674 | 0 | 0 | 0 | 0 |
+| children-100 | 100000 | 134.977 | 403 | 3353680 | 111600 | 302 | 8688322 | 0 | 0 | 0 | 0 |
+| descendants-100 | 100000 | 19.345 | 104 | 33808 | 111600 | 3 | 86978 | 0 | 0 | 0 | 0 |
+| resolve | 100000 | 4.893 | 4 | 11671 | 0 | 2 | 5190 | 0 | 0 | 0 | 0 |
+| update-one | 100000 | 110.410 | 12 | 69031 | 0 | 11 | 177776 | 8 | 36287 | 1 | 0 |
+latency fill-batch: size=100000, samples=352, p50=244.008 ms, p95=620.580 ms, p99=990.232 ms
+latency open-live: size=100000, samples=8, p50=0.573 ms, p95=5.788 ms, p99=5.788 ms
+latency point: size=100000, samples=8, p50=2.159 ms, p95=7.852 ms, p99=7.852 ms
+latency children-100: size=100000, samples=8, p50=145.487 ms, p95=282.046 ms, p99=282.046 ms
+latency descendants-100: size=100000, samples=8, p50=14.432 ms, p95=37.267 ms, p99=37.267 ms
+live logical totals, not physical HTTP requests: Stats { head_reads: 586, object_reads: 297328, range_reads: 297328, bytes_read: 1759853905, object_creates: 4817, bytes_written: 152185426, head_cas_attempts: 398, head_cas_successes: 398, head_conflicts: 0, list_calls: 0, delete_calls: 0 }
+Retained data: 4817 immutable objects, 152103040 bytes (including history/orphan preparations).
+| hot-write | 100 | 100.931 | 5 | 25138 | 0 | 4 | 63174 | 5 | 14366 | 1 | 0 |
+| open-hot-history | 100 | 11.888 | 1 | 795 | 0 | 0 | 1274 | 0 | 0 | 0 | 0 |
+| hot-point | 100 | 5.480 | 3 | 745 | 1103 | 1 | 1652 | 0 | 0 | 0 | 0 |
+| hot-resolve | 100 | 12.251 | 3 | 13057 | 0 | 1 | 32156 | 0 | 0 | 0 | 0 |
+latency hot-write-window: size=100, samples=32, p50=68.254 ms, p95=87.798 ms, p99=100.974 ms
+latency hot-point: size=100, samples=8, p50=6.117 ms, p95=9.602 ms, p99=9.602 ms
+latency hot-resolve: size=100, samples=8, p50=0.915 ms, p95=7.130 ms, p99=7.130 ms
+| hot-write | 1000 | 81.997 | 7 | 35070 | 0 | 6 | 88286 | 7 | 19479 | 1 | 0 |
+| open-hot-history | 1000 | 8.412 | 1 | 795 | 0 | 0 | 1274 | 0 | 0 | 0 | 0 |
+| hot-point | 1000 | 11.559 | 3 | 745 | 1103 | 1 | 1652 | 0 | 0 | 0 | 0 |
+| hot-resolve | 1000 | 5.576 | 4 | 17997 | 0 | 2 | 44660 | 0 | 0 | 0 | 0 |
+latency hot-write-window: size=1000, samples=32, p50=74.467 ms, p95=82.030 ms, p99=96.795 ms
+latency hot-point: size=1000, samples=8, p50=3.977 ms, p95=5.483 ms, p99=5.483 ms
+latency hot-resolve: size=1000, samples=8, p50=0.495 ms, p95=4.188 ms, p99=4.188 ms
+| hot-write | 10000 | 127.616 | 7 | 49616 | 0 | 6 | 126850 | 7 | 26755 | 1 | 0 |
+| open-hot-history | 10000 | 8.623 | 1 | 795 | 0 | 0 | 1274 | 0 | 0 | 0 | 0 |
+| hot-point | 10000 | 5.699 | 3 | 745 | 1103 | 1 | 1652 | 0 | 0 | 0 | 0 |
+| hot-resolve | 10000 | 5.952 | 4 | 25271 | 0 | 2 | 63944 | 0 | 0 | 0 | 0 |
+latency hot-write-window: size=10000, samples=32, p50=89.449 ms, p95=127.660 ms, p99=291.787 ms
+latency hot-point: size=10000, samples=8, p50=4.826 ms, p95=7.883 ms, p99=7.883 ms
+latency hot-resolve: size=10000, samples=8, p50=5.093 ms, p95=7.240 ms, p99=7.240 ms
+hot logical totals, not physical HTTP requests: Stats { head_reads: 10061, object_reads: 77756, range_reads: 77756, bytes_read: 405837935, object_creates: 65649, bytes_written: 245121038, head_cas_attempts: 10001, head_cas_successes: 10001, head_conflicts: 0, list_calls: 0, delete_calls: 0 }
+Retained hot: 65649 immutable objects, 243050831 bytes (including history/orphan preparations).
+* Reader decode charge is the bounded root/page reader estimate, excluding editor/result copies, payload parsing, and allocator RSS. Timings are individual samples; read probes and fill batches also report sampled distributions; the baseline supplies contention distributions. Serial probes have no competing writers; use the baseline and subprocess harness for contention. Actual S3 needs separate service-side HTTP/retry metrics.
+
+Additional contention run with per-writer CAS accounting:
+Baseline: 1024-byte binary payload; 50 sequential writes, 100 latest reads, 20 reopen+snapshot operations, 8 writers x 5 writes.
+OS: macos / aarch64; first measured read: 4.780 ms. OS filesystem caches are not flushed.
+| Workload | Samples | p50 ms | p95 ms | p99 ms |
+| --- | ---: | ---: | ---: | ---: |
+| Sequential durable write | 50 | 85.000 | 112.839 | 115.599 |
+| Repeated latest read | 100 | 5.223 | 7.281 | 7.554 |
+| Reopen + snapshot | 20 | 15.487 | 19.757 | 25.973 |
+| Concurrent durable write | 40 | 313.351 | 7332.392 | 8546.473 |
+Concurrent CAS attempts: 227; conflicts: 187; acknowledged commits: 40.
+Concurrent immutable preparation uploads by CAS outcome: Accounting { committed: Uploads { attempts: 40, objects: 240, bytes: 802620 }, abandoned: Uploads { attempts: 187, objects: 1122, bytes: 3541629 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful HEAD bytes: 8280. Non-success/non-conflict results remain unclassified, never inferred committed.
+Opening populated database (logical adapter operations): Stats { head_reads: 2, object_reads: 1, range_reads: 1, bytes_read: 795, object_creates: 0, bytes_written: 0, head_cas_attempts: 0, head_cas_successes: 0, head_conflicts: 0, list_calls: 0, delete_calls: 0 }
+Stored objects including retained/orphaned versions: 1663; bytes: 4759067.
+Total logical adapter operations (not physical HTTP requests): Stats { head_reads: 456, object_reads: 2009, range_reads: 2009, bytes_read: 8999007, object_creates: 1663, bytes_written: 4777904, head_cas_attempts: 278, head_cas_successes: 91, head_conflicts: 187, list_calls: 0, delete_calls: 0 }

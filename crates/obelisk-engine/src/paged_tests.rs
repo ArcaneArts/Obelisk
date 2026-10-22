@@ -358,7 +358,7 @@ async fn maximum_batch_paths_remain_readable_across_split_and_collapse() {
     );
     let engine = db(store.clone()).await;
     let paths: Vec<_> = (0..256)
-        .map(|i| path(&format!("{i:04}{}", "z".repeat(4000))))
+        .map(|i| path(&format!("{i:04}{}", "z".repeat(MAX_PATH_BYTES - 4))))
         .collect();
     let request = transaction("max-path-batch", paths.clone());
     let receipt = engine.commit(&request).await.unwrap();

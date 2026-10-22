@@ -494,7 +494,17 @@ mod tests {
             id: ObjectId,
             range: Option<std::ops::Range<u64>>,
         ) -> obelisk_storage::Result<bytes::Bytes> {
-            self.inner.read(id, range).await
+            let bytes = self.inner.read(id, range).await?;
+            if self.mode.load(std::sync::atomic::Ordering::SeqCst) == 8
+                && bytes.get(4) == Some(&5)
+                && bytes.get(43) == Some(&2)
+            {
+                self.mode.store(0, std::sync::atomic::Ordering::SeqCst);
+                return Err(obelisk_storage::Error::Transport(
+                    "lost lazy request page read".into(),
+                ));
+            }
+            Ok(bytes)
         }
         async fn create(&self, id: ObjectId, bytes: bytes::Bytes) -> obelisk_storage::Result<()> {
             self.inner.create(id, bytes).await
@@ -546,6 +556,12 @@ mod tests {
                     self.mode.store(5, std::sync::atomic::Ordering::SeqCst);
                     Err(obelisk_storage::Error::Uncertain(
                         "lost success and resolution read".into(),
+                    ))
+                }
+                7 => {
+                    self.mode.store(8, std::sync::atomic::Ordering::SeqCst);
+                    Err(obelisk_storage::Error::Uncertain(
+                        "lost success and lazy outcome lookup".into(),
                     ))
                 }
                 _ => Ok(result),
@@ -607,7 +623,7 @@ mod tests {
     }
     #[tokio::test]
     async fn lost_response_and_transport_retry_conflict_resolve_original_receipt() {
-        for mode in [1, 2, 3, 4] {
+        for mode in [1, 2, 3, 4, 7] {
             let dir = tempfile::tempdir().unwrap();
             let fault = Arc::new(ResponseFault {
                 inner: Arc::new(
@@ -631,7 +647,7 @@ mod tests {
             fault.mode.store(mode, std::sync::atomic::Ordering::SeqCst);
             let transaction = tx("uncertain", vec![put("a", 1)]);
             let result = db.commit(&transaction).await;
-            if mode == 3 || mode == 4 {
+            if mode == 3 || mode == 4 || mode == 7 {
                 assert!(matches!(result, Err(Error::Uncertain { .. })));
             } else {
                 assert!(result.is_ok());
