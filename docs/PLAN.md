@@ -507,3 +507,17 @@ concurrent compaction, and orphan cleanup. Backups must be tested by restoring t
   for object-storage persistence and caching. Its documented single-writer model
   differs from Obelisk's requirement for independent concurrent serverless writers;
   dependency evaluation must account for that distinction.
+
+## Query foundations delivery block
+
+The next implementation block replaces whole-manifest metadata maps with bounded
+immutable ordered pages, integrates lazy snapshots and transactional publication,
+then exposes bulk reads and snapshot-paginated hierarchy discovery. Parent
+membership is maintained from the first paged-format write. Scalar field indexes
+follow in a separate block; actual AWS S3 qualification remains a parallel external
+acceptance gate rather than a prerequisite for independent implementation.
+
+Deliver four independently merged cycles: metadata primitives; paged engine
+integration; bulk/hierarchy APIs; pagination/concurrency/crash and scaling
+qualification. Nothing in this block enables reclamation, compaction, portable
+cursor decoding, or a wire protocol.
