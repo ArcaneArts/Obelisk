@@ -5,12 +5,13 @@ Each completed cycle is committed separately. See git history for exact commits.
 - [x] 1. Workspace, crate boundaries, CI, and baseline decisions.
 - [x] 2. Validated public data model.
 - [x] 3. Storage contract and folder adapter.
-- [x] 4. S3 adapter and opt-in real-service contract tests.
+- [x] 4. S3 adapter and opt-in real-service contract tests (execution pending).
 - [x] 5. Persistent formats and metadata-only snapshot opening.
 - [x] 6. Atomic transactions and conditional publication.
 - [x] 7. Persisted idempotency and uncertain-outcome resolution.
 - [x] 8. Public facade, examples, and usage documentation.
-- [x] 9. Multiprocess/crash validation and baseline measurements.
+- [x] 9. Multiprocess/crash harness, local validation and measurements.
+- [x] 10. Recover interrupted folder publication before acknowledging observed heads.
 
 ## Evidence
 
@@ -66,11 +67,26 @@ preparing batches, metadata is validated against reader limits before publicatio
 and public snapshot references are opaque.
 
 Cycle 9 checks rerun on 2026-10-22 in an isolated worktree: 29 passed; two actual-S3
-tests explicitly ignored. Formatting,
-strict Clippy with all features, facade folder-only and S3-only Clippy, and the
+tests explicitly ignored. Formatting, strict Clippy with all features, facade
+folder-only and S3-only Clippy, and the
 no-default-feature workspace build pass. The release-mode baseline and its limits
 are recorded in [BASELINE.md](BASELINE.md). Logical adapter counters are available
 through `obelisk::storage::metrics::InstrumentedStorage`.
+
+Cycle 10: folder head reads now finish directory sync under a shared publication
+lock before returning a visible head, including a publisher killed between rename
+and sync. A real subprocess is killed at that exact adapter-internal boundary;
+a reader opened before the crash recovers the head and permits the next CAS.
+Injected sync failures prove that visible bytes alone cannot yield a successful
+head read. Relative roots are pinned at open. Developer instructions document the
+crate boundaries and commit, durability, and qualification rules.
+
+Cycle 10 checks on 2026-10-22: 33 workspace tests passed (including two subprocess
+worker entry points), with two actual-S3 tests ignored. Formatting, strict workspace
+and facade feature Clippy, and no-default-feature build all passed. The local example
+ran twice against one folder and returned the same persisted commit receipt; the
+S3-only example compiled. Baseline results are recorded separately; no hardware
+power-loss or actual-S3 claim is made.
 
 ## Cycle commits
 
@@ -84,14 +100,8 @@ through `obelisk::storage::metrics::InstrumentedStorage`.
 | 6 | `6e194cf` | Atomic transactions |
 | 7 | `ffbbd97` | Idempotency and uncertain outcomes |
 | 8 | `afba0e6` | Public API and examples |
-| 9 | This document's commit | Multiprocess/crash harness, counters and measurements |
-
-## Follow-up found during review
-
-A writer can die after renaming HEAD but before syncing its directory. An already
-open reader must complete that durability barrier before returning a head that
-can resolve a request as successful. Cycle 10 will add the barrier and exercise
-this adapter-internal crash window separately from cycle 9's engine boundaries.
+| 9 | `250ba09` | Multiprocess/crash harness, counters and measurements |
+| 10 | This document's commit | Durable recovery of observed folder heads |
 
 ## Acceptance still open
 
@@ -105,7 +115,8 @@ CI definitions cover Linux, macOS and Windows, but remote CI has not run in this
 session. Folder durability is limited to local POSIX filesystems; Windows folder
 opening explicitly returns unsupported. Network filesystems and hardware power-loss
 durability remain unverified. Process termination tests cover engine operation
-boundaries, not every instruction within filesystem or transport implementations.
+boundaries and the folder rename-before-sync window, not every instruction within
+filesystem or transport implementations.
 
 History, orphaned uploads, request outcomes, and abandoned temporary files are not
 automatically reclaimed. Metadata is fully rewritten per commit, bounded to 64 MiB;

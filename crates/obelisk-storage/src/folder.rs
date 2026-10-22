@@ -20,25 +20,27 @@ impl Folder {
         }
         let root = root.into();
         let this = Self { root };
-        this.run(|root| {
-            durable_mkdir(&root)?;
-            durable_mkdir(&root.join("objects"))?;
-            let lock = OpenOptions::new()
-                .create(true)
-                .truncate(false)
-                .read(true)
-                .write(true)
-                .open(root.join("LOCK"))?;
-            lock.sync_all()?;
-            sync_dir(&root)?;
-            // Another opener may have created an ancestor without syncing it yet.
-            for directory in root.canonicalize()?.ancestors() {
-                sync_dir(directory)?;
-            }
-            Ok(())
-        })
-        .await?;
-        Ok(this)
+        let root = this
+            .run(|root| {
+                durable_mkdir(&root)?;
+                durable_mkdir(&root.join("objects"))?;
+                let lock = OpenOptions::new()
+                    .create(true)
+                    .truncate(false)
+                    .read(true)
+                    .write(true)
+                    .open(root.join("LOCK"))?;
+                lock.sync_all()?;
+                sync_dir(&root)?;
+                // Another opener may have created an ancestor without syncing it yet.
+                let root = root.canonicalize()?;
+                for directory in root.ancestors() {
+                    sync_dir(directory)?;
+                }
+                Ok(root)
+            })
+            .await?;
+        Ok(Self { root })
     }
     async fn run<T: Send + 'static>(
         &self,
@@ -134,6 +136,42 @@ fn temporary(dir: &Path, bytes: &[u8]) -> Result<PathBuf> {
     result?;
     Ok(path)
 }
+fn durable_head(
+    root: &Path,
+    flush: impl FnOnce(&Path) -> std::io::Result<()>,
+) -> Result<Option<Head>> {
+    let _lock = lock(root, false)?;
+    let observed = head(root)?;
+    if observed.is_some() {
+        // A publisher may have died after rename but before directory sync.
+        // Resolve/retry can acknowledge this head, so first finish its barrier.
+        // The shared lock prevents a different head replacing it while syncing.
+        flush(root)?;
+    }
+    Ok(observed)
+}
+fn publish_head(
+    root: &Path,
+    expected: Option<&VersionToken>,
+    bytes: &[u8],
+    flush: impl FnOnce(&Path) -> std::io::Result<()>,
+) -> Result<VersionToken> {
+    let _lock = lock(root, true)?;
+    if head(root)?.map(|h| h.version).as_ref() != expected {
+        return Err(Error::Conflict);
+    }
+    let token = ObjectId::random().to_string();
+    let mut raw = token.as_bytes().to_vec();
+    raw.push(b'\n');
+    raw.extend_from_slice(bytes);
+    let temp = temporary(root, &raw)?;
+    if let Err(e) = fs::rename(&temp, root.join("HEAD")) {
+        let _ = fs::remove_file(temp);
+        return Err(e.into());
+    }
+    flush(root).map_err(|e| Error::Uncertain(e.to_string()))?;
+    Ok(VersionToken(token))
+}
 #[async_trait]
 impl Storage for Folder {
     async fn read(&self, id: ObjectId, range: Option<Range<u64>>) -> Result<Bytes> {
@@ -183,11 +221,7 @@ impl Storage for Folder {
         .await
     }
     async fn read_head(&self) -> Result<Option<Head>> {
-        self.run(|root| {
-            let _lock = lock(&root, false)?;
-            head(&root)
-        })
-        .await
+        self.run(|root| durable_head(&root, sync_dir)).await
     }
     async fn compare_exchange_head(
         &self,
@@ -198,24 +232,8 @@ impl Storage for Folder {
             return Err(Error::Invalid("head byte limit".into()));
         }
         let expected = expected.cloned();
-        self.run(move |root| {
-            let _lock = lock(&root, true)?;
-            if head(&root)?.map(|h| h.version) != expected {
-                return Err(Error::Conflict);
-            }
-            let token = ObjectId::random().to_string();
-            let mut raw = token.as_bytes().to_vec();
-            raw.push(b'\n');
-            raw.extend_from_slice(&bytes);
-            let temp = temporary(&root, &raw)?;
-            if let Err(e) = fs::rename(&temp, root.join("HEAD")) {
-                let _ = fs::remove_file(temp);
-                return Err(e.into());
-            }
-            sync_dir(&root).map_err(|e| Error::Uncertain(e.to_string()))?;
-            Ok(VersionToken(token))
-        })
-        .await
+        self.run(move |root| publish_head(&root, expected.as_ref(), &bytes, sync_dir))
+            .await
     }
     async fn list(&self) -> Result<Vec<ObjectId>> {
         self.run(|root| {
@@ -246,3 +264,7 @@ impl Storage for Folder {
         .await
     }
 }
+
+#[cfg(all(test, unix))]
+#[path = "folder_tests.rs"]
+mod tests;

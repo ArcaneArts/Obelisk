@@ -37,6 +37,7 @@ All snapshots and request outcomes are retained in this prototype.
 The default `folder` feature supports local POSIX filesystems. Windows folder
 storage returns an explicit unsupported error; network filesystems are unverified.
 OS locks coordinate processes, and durable publication uses file and directory sync.
+Readers complete any interrupted HEAD directory sync before returning its snapshot.
 Process-kill tests do not prove hardware power-loss behavior.
 
 Enable `s3` and use `Database::open_s3(bucket, prefix)` with external credentials.
@@ -70,6 +71,7 @@ claims require the validation evidence recorded in the checklist.
 ## Development
 
 Rust 1.93 or newer. Commit Cargo.lock for repeatable development.
+See [developer instructions](AGENTS.md) for crate boundaries and commit invariants.
 
 ```sh
 cargo fmt --all -- --check

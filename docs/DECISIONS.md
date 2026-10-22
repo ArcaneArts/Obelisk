@@ -44,8 +44,13 @@ the authoritative head; pinned snapshots remain readable because nothing is recl
 
 Storage uses engine-generated UUID object IDs, never logical paths. Adapters own
 process-safe atomicity and durability. Folder publication uses an OS file lock,
-file sync, atomic rename, and directory sync. Supported baseline durability target
-is a local POSIX filesystem; Windows support is conditional on verified equivalent
+file sync, atomic rename, and directory sync. Readers also sync the head directory
+under a shared publication lock before returning a visible head: a publisher may
+have died after rename and before
+sync. This allows uncertain request resolution to complete the missing barrier.
+Folder roots are canonicalized once at open so later working-directory changes do
+not redirect an existing adapter. The supported baseline durability target is a
+local POSIX filesystem; Windows support is conditional on verified equivalent
 publication and directory-flush behavior. Network filesystems are unverified.
 S3 uses immutable create and conditional head replacement; no unconditional fallback.
 Every head payload must contain a fresh commit identity to prevent ABA.
