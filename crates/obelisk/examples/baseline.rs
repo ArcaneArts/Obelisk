@@ -1,9 +1,8 @@
 //! Repeatable local workload, without hard-coded performance pass/fail targets.
-use obelisk::{
-    storage::{folder::Folder, metrics::InstrumentedStorage},
-    *,
-};
+use obelisk::{storage::metrics::InstrumentedStorage, *};
 use std::{sync::Arc, time::Instant};
+#[path = "support/publications.rs"]
+mod publications;
 fn report(name: &str, samples: &mut [f64]) {
     samples.sort_by(f64::total_cmp);
     let percentile =
@@ -35,7 +34,16 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                     return Err("enable the s3 feature".into());
                 }
             }
-            Ok("folder") | Err(_) => Arc::new(Folder::open(dir.path()).await?),
+            Ok("folder") | Err(_) => {
+                #[cfg(feature = "folder")]
+                {
+                    Arc::new(storage::folder::Folder::open(dir.path()).await?)
+                }
+                #[cfg(not(feature = "folder"))]
+                {
+                    return Err("enable folder or select the s3 backend".into());
+                }
+            }
             Ok(_) => return Err("unknown OBELISK_BASELINE_BACKEND".into()),
         };
     let is_folder = std::env::var("OBELISK_BASELINE_BACKEND").as_deref() != Ok("s3");
@@ -73,10 +81,13 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     }
     let before = measured.stats();
     let mut tasks = Vec::new();
+    let mut publications = Vec::new();
     for writer in 0..8 {
-        let db = db.clone();
+        let accounting = Arc::new(publications::Publications::new(measured.clone()));
+        publications.push(accounting.clone());
         let document = document.clone();
         tasks.push(tokio::spawn(async move {
+            let db = Database::open_with_storage(accounting, DatabaseOptions::default()).await?;
             let mut samples = Vec::new();
             for i in 0..5 {
                 let start = Instant::now();
@@ -97,6 +108,25 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         concurrent.extend(task.await??);
     }
     let after = measured.stats();
+    let mut accounting = publications::Accounting::default();
+    for writer in publications {
+        accounting.add(writer.stats());
+    }
+    assert_eq!(accounting.committed.attempts, 40);
+    assert_eq!(
+        accounting.abandoned.attempts,
+        after.head_conflicts - before.head_conflicts
+    );
+    assert_eq!(accounting.unclassified.attempts, 0);
+    assert_eq!(accounting.pending.objects, 0);
+    assert_eq!(
+        accounting.committed.objects + accounting.abandoned.objects,
+        after.object_creates - before.object_creates
+    );
+    let successful_head_bytes = after.bytes_written
+        - before.bytes_written
+        - accounting.committed.bytes
+        - accounting.abandoned.bytes;
     println!(
         "Baseline: 1024-byte binary payload; 50 sequential writes, 100 latest reads, 20 reopen+snapshot operations, 8 writers x 5 writes."
     );
@@ -117,6 +147,9 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         after.head_cas_attempts - before.head_cas_attempts,
         after.head_conflicts - before.head_conflicts,
         after.head_cas_successes - before.head_cas_successes
+    );
+    println!(
+        "Concurrent immutable preparation uploads by CAS outcome: {accounting:?}; successful HEAD bytes: {successful_head_bytes}. Non-success/non-conflict results remain unclassified, never inferred committed."
     );
     let snapshot = db.snapshot().await?;
     assert_eq!(snapshot.sequence(), 90);

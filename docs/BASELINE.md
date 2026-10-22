@@ -130,3 +130,179 @@ folder rename-before-sync window. They do not simulate hardware power loss, ever
 instruction inside an adapter operation, or
 filesystem/controller failures. Network filesystems and other OS durability behavior
 remain unverified. Overall backend acceptance remains open pending actual S3 results.
+
+## Query foundations qualification (cycle 14)
+
+Measurements on 2026-10-22: macOS 27.0.1 (26A434), Apple M4 Max / aarch64,
+128 GiB RAM, rustc 1.93.0 and Cargo 1.93.0, checked-in lockfile, release builds.
+Fresh disposable POSIX folders; no engine cache or filesystem-cache flushing.
+Other machine activity is not controlled. These are observed runs, not universal
+latency thresholds, physical cold-disk measurements, or AWS qualification.
+
+### Comparable small baseline
+
+The same `baseline` example ran on the retained cycle-11 checkout (production v1
+writer) and cycle-14 paged writer: 1024-byte binary payload, 50 sequential writes,
+100 latest reads, 20 reopen-plus-snapshot samples, and eight async writers with
+five writes each. Backend setup is outside the startup counters. Workload shape
+and payload match; scheduling, OS caches, and conflict retries vary between runs.
+
+| Workload | v1 p50/p95/p99 ms | Paged p50/p95/p99 ms |
+| --- | --- | --- |
+| Sequential durable write, 50 samples | 32.880 / 41.736 / 44.872 | 81.065 / 114.630 / 123.290 |
+| Repeated latest read, 100 samples | 0.204 / 0.284 / 4.237 | 0.604 / 4.986 / 7.529 |
+| Reopen plus snapshot, 20 samples | 0.392 / 0.490 / 0.523 | 0.969 / 20.939 / 34.598 |
+| Concurrent durable write, 40 samples | 92.648 / 1972.636 / 2490.426 | 319.218 / 7080.338 / 9559.662 |
+
+At 90 documents/90 retained requests, opening fetched 30,516 logical bytes for
+v1 and 795 for paged metadata. Both read two heads and one immutable object;
+v2's object is a 381-byte root read through a bounded range. It loads zero
+location/request/membership pages, receipt objects, or document records on open.
+Metadata range reads must not be confused with document-range reads.
+
+Concurrent publication needed 153 CAS attempts/113 conflicts for v1 and
+183 attempts/143 conflicts for v2, each acknowledging 40 commits. Total retained
+objects, including history and orphan preparations, were 407 / 3,894,607 bytes
+for v1 and 1,399 / 3,784,730 bytes for v2. Total logical written bytes including
+successful HEAD updates were 3,913,080 and 3,803,567 respectively. These totals
+include different retry amplification and are not a controlled storage-cost gain.
+
+The paged layout performs more small object operations and was slower on this
+small workload. Its benefit is bounded metadata opening and local updates as
+state grows. It does not remove HEAD contention or retained-history growth.
+Logical adapter operations/bytes are not physical HTTP requests or S3 cost.
+
+A second paged baseline accounts for immutable uploads per publication attempt.
+Each concurrent writer has its own benchmark-only wrapper and submits commits
+sequentially; the wrapper attributes created bytes to that writer's next CAS.
+It asserts that the outcome totals reconcile with global creates and conflicts.
+Forty successful attempts created 240 objects / **802,620 bytes**, with another
+8,280 bytes of successful HEAD writes. The 187 conflicting attempts abandoned
+1,122 objects / **3,541,629 bytes**. No pending or unclassified uploads remained.
+These are successful immutable-create bytes, including payload, receipt, pages
+and root; transient editor allocations are not uploads. Preparation that ends
+before CAS or has an uncertain outcome must remain pending/unclassified rather
+than being inferred successful. This local run had neither case.
+
+Concurrent p50/p95/p99 were 313.351 / 7332.392 / 8546.473 ms. It retained 1,663
+objects / 4,759,067 bytes, including history and abandoned preparations. The
+different conflict count reinforces why total bytes from separate contended runs
+are not a controlled storage-efficiency comparison. Its full output follows the
+scaling data in the linked measurement record.
+
+### Capacity beyond the former manifest bound
+
+The explicit release-mode POSIX capacity test passed with 100,000 live documents
+and 800-byte padded names, inserted in batches of at most 256. Traversing the
+committed location tree counted **91,200,000 live key/value bytes**, excluding
+page envelopes and branch metadata, beyond the former 64 MiB manifest bound.
+The root remained **381 bytes**; one update rewrote **five location pages** and
+zero membership pages. Reopening, first/last point reads, a historical snapshot,
+and the original receipt after later edits all passed. This run took 309.80 s.
+
+```sh
+cargo test -p obelisk-engine --release --locked \
+  paged_capacity_exceeds_the_old_manifest_limit -- --ignored --nocapture
+```
+
+This test is deliberately ignored in routine CI because it creates a large
+local disposable database. It is separate from the two credential-gated actual
+AWS tests. Removing test-owned temporary folders is not database reclamation.
+
+### Repeatable scaling workload
+
+```sh
+OBELISK_BASELINE_BACKEND=folder \
+OBELISK_SCALING_MAX=100000 OBELISK_SCALING_REQUESTS=10000 \
+cargo run --release -p obelisk --example scaling --locked
+```
+
+The workload measures 100, 1,000, 10,000, and 100,000 live documents with a
+1024-byte payload and batches up to 256, then repeatedly updates one document
+through increasing distinct request histories. It reports startup, point/bulk,
+hierarchy, request resolution, and single-update counters; sampled read/fill/write
+latencies; and retained object counts. Setup and probes are serial: contention
+measurements are supplied by the small baseline and independent-process harness.
+
+`obelisk::diagnostics::InstrumentedMetadata` distinguishes roots, each metadata
+family, receipt objects, and document records without changing storage behavior.
+Its reader decode charge is the root/page reader's bounded estimate, not RSS;
+it excludes editor copies, result cloning and payload decoding. Generic counters
+remain in `obelisk::storage::metrics`. Optional counters provide no correctness
+or cache dependency. Both examples build with folder-only and S3-only features.
+
+The full run reached all four live-document checkpoints and 10,000 retained
+requests. [Recorded output](measurements/query-foundations-folder.txt) includes
+every operation counter and latency distribution, with progress chatter removed.
+The old writer is commit `d3e98aa`; paged measurements use this cycle's source.
+
+| Live documents | Open bytes / tree reads | Point metadata bytes / tree reads | Descendants 100 metadata bytes / tree reads | Update objects / written bytes |
+| ---: | --- | --- | --- | --- |
+| 100 | 795 / 0 | 12,437 / 1 | 12,437 / 1 | 5 / 14,141 |
+| 1,000 | 795 / 0 | 17,794 / 2 | 17,794 / 2 | 6 / 20,121 |
+| 10,000 | 795 / 0 | 24,489 / 2 | 24,489 / 2 | 6 / 31,444 |
+| 100,000 | 795 / 0 | 33,808 / 3 | 33,808 / 3 | 8 / 36,287 |
+
+Every open reads one 381-byte root, zero tree pages/receipts/payloads, and has a
+1,274-byte root reader charge. Metadata bytes above include HEAD and, for request
+resolution, receipt objects. Each single update uses one successful CAS, has no
+conflict or abandoned preparation, and creates zero membership pages. Written
+bytes include all created immutable payload/receipt/page/root bytes and HEAD;
+there is no separate WAL or hidden preparation upload. The baseline's contended
+totals above include abandoned preparations and must be interpreted separately.
+
+At 100,000 documents, bulk-100 and children-100 read 300 and 302 tree pages,
+3,322,588 and 3,353,680 metadata bytes, and 111,600 payload bytes each. Children
+enumerate the parent range, then perform separate location lookups. Bulk inputs
+also perform separate point traversals: no shared immutable-page cache is present.
+The descendant range reads three tree pages and the same 111,600 payload bytes.
+This exposes a future batching/cache opportunity without hiding current costs.
+The child-selectivity test separately proves that 3,072 deeper documents do not
+make a one-child query scan their subtree.
+
+| Live documents | Fill batch samples | Fill p50/p95/p99 ms | Open p50/p95/p99 ms | Descendants 100 p50/p95/p99 ms |
+| ---: | ---: | --- | --- | --- |
+| 100 | 1 | 90.347 / 90.347 / 90.347 | 13.494 / 20.262 / 20.262 | 15.576 / 24.690 / 24.690 |
+| 1,000 | 4 | 246.393 / 600.455 / 600.455 | 0.410 / 6.017 / 6.017 | 11.140 / 26.343 / 26.343 |
+| 10,000 | 36 | 190.148 / 315.081 / 321.137 | 9.695 / 20.010 / 20.010 | 9.279 / 12.893 / 12.893 |
+| 100,000 | 352 | 244.008 / 620.580 / 990.232 | 0.573 / 5.788 / 5.788 | 14.432 / 37.267 / 37.267 |
+
+Read distributions contain eight samples each; their p95/p99 are both the maximum
+and do not characterize production tails. Fill batches contain at most 256
+documents, with smaller checkpoint-ending batches. Retained live objects total
+4,817 / 152,103,040 bytes, including prior roots/pages/receipts; 398 publications
+all succeeded without conflicts. Logical bytes written including HEAD total
+152,185,426. Ordinary engine reads made zero list/delete calls.
+
+| Retained requests, one document | Open bytes / tree reads | Resolve original receipt metadata bytes / tree reads | Checkpoint write objects / written bytes | Last 32 writes p50/p95/p99 ms |
+| ---: | --- | --- | --- | --- |
+| 100 | 795 / 0 | 13,057 / 1 | 5 / 14,366 | 68.254 / 87.798 / 100.974 |
+| 1,000 | 795 / 0 | 17,997 / 2 | 7 / 19,479 | 74.467 / 82.030 / 96.795 |
+| 10,000 | 795 / 0 | 25,271 / 2 | 7 / 26,755 | 89.449 / 127.660 / 291.787 |
+
+The hot document's point metadata stays at 745 bytes / one tree page while request
+history grows; its encoded record is 1,103 bytes. Resolving `hot-1` still returns
+the original receipt after all later writes. Retained hot objects total 65,649 /
+243,050,831 bytes. Logical bytes written including HEAD total 245,121,038, with
+10,001 successful publications (including initialization), zero conflicts and
+zero list/delete calls. Paging bounds relevant metadata work; it does not bound
+retained storage or guarantee flat write latency.
+
+### Recovery and query visibility
+
+The expanded subprocess suite checks four independent hierarchy writers through
+36 committed outcomes: atomic parent pairs repeatedly appear/disappear while
+leaves remain; pinned pages resume across concurrent deletion/recreation. Readers
+compare membership results, document bodies and revisions from one snapshot.
+Final outcomes and preserved historical pages are checked after writers exit.
+
+Twenty-four commit-boundary kills cover receipt, document/request/membership page,
+root and HEAD preparation/publication. Five use 256-document, maximum-path batches
+that force multiple pages and tree splits. Markers must identify the intended
+phase. After reopening, documents, children/descendants and retained outcomes are
+visible together or absent together. Existing OS-lock-death and adapter-internal
+rename-before-directory-sync tests remain required. Process kills do not establish
+hardware power-loss durability.
+
+Actual AWS S3 remains pending: no dedicated bucket or test prefix is configured.
+Neither emulator nor memory-adapter results count as actual-service qualification.

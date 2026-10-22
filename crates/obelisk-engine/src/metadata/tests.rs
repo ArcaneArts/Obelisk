@@ -253,7 +253,9 @@ async fn maximum_paths_split_multiple_levels_and_collapse_after_deletion() {
     let store = Memory::default();
     let mut changes = Changes::new();
     for i in 0..256 {
-        let path = DocumentPath::from_segments([format!("{i:04}{}", "z".repeat(4000))]).unwrap();
+        let path =
+            DocumentPath::from_segments([format!("{i:04}{}", "z".repeat(MAX_PATH_BYTES - 4))])
+                .unwrap();
         changes.insert(document_key(&path), Some(vec![1; 100]));
     }
     let first = apply(&store, None, changes.clone()).await;
@@ -277,6 +279,8 @@ async fn maximum_paths_split_multiple_levels_and_collapse_after_deletion() {
 
 #[test]
 fn ordered_paths_and_memberships_respect_boundaries() {
+    let mut deepest = vec!["x".repeat(31); 128];
+    deepest.last_mut().unwrap().push('x');
     let paths = vec![
         DocumentPath::parse("a").unwrap(),
         DocumentPath::parse("a/b").unwrap(),
@@ -284,6 +288,11 @@ fn ordered_paths_and_memberships_respect_boundaries() {
         DocumentPath::parse("a/bc").unwrap(),
         DocumentPath::from_segments(["a/b"]).unwrap(),
         DocumentPath::parse("é/🙂").unwrap(),
+        DocumentPath::from_segments(["x".repeat(MAX_PATH_BYTES)]).unwrap(),
+        DocumentPath::from_segments(["/".repeat(MAX_PATH_BYTES / 2)]).unwrap(),
+        DocumentPath::from_segments(["\\".repeat(MAX_PATH_BYTES / 2)]).unwrap(),
+        DocumentPath::from_segments(["é".repeat(MAX_PATH_BYTES / 2)]).unwrap(),
+        DocumentPath::from_segments(deepest).unwrap(),
     ];
     for path in &paths {
         assert_eq!(document_path(&document_key(path)).unwrap(), *path);
@@ -510,4 +519,117 @@ async fn shuffled_wide_path_deletions_keep_internal_fanout() {
             256 - (batch + 1) * 16
         );
     }
+}
+
+#[tokio::test]
+async fn checksummed_metadata_rejects_semantic_corruption_and_missing_children() {
+    let mut bytes = Node {
+        level: 0,
+        entries: vec![(b"a".to_vec(), vec![1])],
+    }
+    .encode(Family::Documents)
+    .unwrap();
+    bytes[5..7].copy_from_slice(&2_u16.to_le_bytes());
+    assert!(matches!(
+        Node::decode(&bytes, Family::Documents),
+        Err(Error::UnsupportedVersion(2))
+    ));
+    let mut writer = format::Writer::default();
+    writer.byte(Family::Documents as u8);
+    writer.byte(0);
+    writer.u32(2);
+    for value in [b"first".as_slice(), b"second".as_slice()] {
+        writer.bytes(b"duplicate");
+        writer.bytes(value);
+    }
+    let bytes = format::envelope(PAGE_KIND, writer.0).unwrap();
+    assert!(matches!(
+        Node::decode(&bytes, Family::Documents),
+        Err(Error::Corrupt(_))
+    ));
+    let store = Memory::default();
+    let tree = apply(&store, None, BTreeMap::from([(key(1), Some(vec![1]))])).await;
+    let mut missing = tree.root.unwrap();
+    missing.blob.object = ObjectId::random();
+    assert!(matches!(
+        get(
+            &store,
+            Family::Documents,
+            Some(&missing),
+            &key(1),
+            &mut Budget::default()
+        )
+        .await,
+        Err(Error::Corrupt(_))
+    ));
+    let child = PageRef {
+        blob: ObjectRef {
+            object: ObjectId::random(),
+            len: 100,
+            hash: [0; 32],
+        },
+        level: 31,
+        count: 1,
+    };
+    assert!(
+        Node {
+            level: 1,
+            entries: vec![(b"a".to_vec(), child.bytes())]
+        }
+        .encode(Family::Documents)
+        .is_err()
+    );
+    let mut writer = format::Writer::default();
+    writer.byte(Family::Documents as u8);
+    writer.byte(0);
+    writer.u32(usize::MAX);
+    let bytes = format::envelope(PAGE_KIND, writer.0).unwrap();
+    assert!(Node::decode(&bytes, Family::Documents).is_err());
+}
+
+#[tokio::test]
+async fn a_local_edit_preserves_a_distant_sparse_tail() {
+    let store = Memory::default();
+    let tree = apply(
+        &store,
+        None,
+        (0..1141).map(|i| (key(i), Some(vec![1; 400]))).collect(),
+    )
+    .await;
+    let root = tree.root.as_ref().unwrap();
+    assert_eq!(root.level, 1);
+    let original = Node::decode(
+        &store.read(root.blob.object, None).await.unwrap(),
+        Family::Documents,
+    )
+    .unwrap();
+    let tail = PageRef::from_bytes(&original.entries.last().unwrap().1).unwrap();
+    assert!((tail.blob.len as usize) < PAGE_TARGET / 3);
+    let edited = apply(
+        &store,
+        Some(root),
+        BTreeMap::from([(key(0), Some(vec![2; 400]))]),
+    )
+    .await;
+    assert_eq!(
+        edited.objects.len(),
+        2,
+        "only the changed leaf and root should be created"
+    );
+    let updated = Node::decode(
+        &store
+            .read(edited.root.as_ref().unwrap().blob.object, None)
+            .await
+            .unwrap(),
+        Family::Documents,
+    )
+    .unwrap();
+    assert_eq!(&updated.entries[1..], &original.entries[1..]);
+    let unchanged = apply(
+        &store,
+        edited.root.as_ref(),
+        BTreeMap::from([(key(0), Some(vec![2; 400]))]),
+    )
+    .await;
+    assert!(unchanged.objects.is_empty());
 }

@@ -48,6 +48,14 @@ async fn load(
     charge(&mut budget.page_reads, 1, "metadata page visits")?;
     budget.charge_decoded(page.blob.len as usize * 2 + page.count as usize * 64)?;
     let bytes = page.blob.read(store, MAX_PAGE_BYTES, budget).await?;
+    // The reservation above uses the descriptor count. Verify it against the
+    // encoded header before the decoder allocates entry vectors.
+    let encoded_count = bytes
+        .get(45..49)
+        .map(|s| u32::from_le_bytes(s.try_into().unwrap()));
+    if encoded_count != Some(page.count) {
+        return Err(corrupt("page descriptor count mismatch"));
+    }
     let node = Node::decode(&bytes, family)?;
     if node.level != page.level || node.entries.len() != page.count as usize {
         return Err(corrupt("page descriptor mismatch"));
@@ -261,6 +269,12 @@ impl Editor<'_> {
         let mut i = 0;
         while i < children.len() && children.len() > 1 {
             let page = PageRef::from_bytes(&children[i].1)?;
+            // An unchanged sparse fringe is not maintenance work for this
+            // transaction. Only edited pages can require sibling repair.
+            if !self.staged.contains_key(&page.blob.object) {
+                i += 1;
+                continue;
+            }
             if page.blob.len as usize >= PAGE_TARGET / 3 && (page.level == 0 || page.count >= 2) {
                 i += 1;
                 continue;

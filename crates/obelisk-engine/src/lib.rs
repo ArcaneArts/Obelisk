@@ -1,4 +1,5 @@
 //! Snapshot and transaction engine. Persistent formats belong to this crate.
+pub mod diagnostics;
 pub mod format;
 mod limits;
 pub mod metadata;
@@ -47,3 +48,6 @@ pub(crate) fn corrupt(message: &str) -> Error {
 
 #[cfg(test)]
 mod paged_tests;
+
+#[cfg(test)]
+mod qualification_tests;

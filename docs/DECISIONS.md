@@ -155,3 +155,18 @@ through another engine instance. Page sizes and byte budgets may change without
 changing the logical query. Query/database/snapshot/version/position mismatches
 are explicit cursor errors. Portable string tokens and snapshot expiration remain
 outside this retained-history, transport-free block.
+
+## Qualification instrumentation and local page work
+
+Optional engine-owned diagnostics classify versioned object envelopes and families;
+storage stays byte-oriented and independent of public document types. Reader decode
+charges are estimates used for bounded root/page work, not allocator RSS. Counters
+are observational and never participate in publication or cache correctness.
+
+Rebalance only edited pages and immediate siblings. An unchanged sparse fringe
+must not become background maintenance for an unrelated write. Qualification
+reproduced four uploads for a first-leaf update because a distant sparse tail was
+rewritten; the corrected path creates only the changed leaf/root, retaining every
+unrelated child reference. Descriptor item counts are checked against encoded page
+headers before entry-vector allocations, so corrupt counts cannot undercharge the
+operation's decode budget. Encodings remain unchanged by these safeguards.

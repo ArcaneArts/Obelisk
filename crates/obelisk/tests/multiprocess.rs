@@ -151,7 +151,9 @@ struct FaultStore {
 }
 impl FaultStore {
     fn point(&self, stage: &str) {
-        if self.armed.load(Ordering::SeqCst) && self.stage == stage {
+        if self.armed.load(Ordering::SeqCst)
+            && self.stage.strip_prefix("split-").unwrap_or(&self.stage) == stage
+        {
             gate(&self.ready, &self.release, stage);
         }
     }
@@ -180,8 +182,21 @@ impl Storage for FaultStore {
             Some(6) => ("before-outcome", "after-outcome"),
             _ => panic!("unexpected prepared object kind"),
         };
+        let family = match bytes.get(43) {
+            Some(1) => ("before-document-page", "after-document-page"),
+            Some(2) => ("before-request-page", "after-request-page"),
+            Some(3) => ("before-membership-page", "after-membership-page"),
+            _ => ("", ""),
+        };
+        let page = bytes.get(4) == Some(&5);
         self.point(before);
+        if page {
+            self.point(family.0);
+        }
         self.inner.create(id, bytes).await?;
+        if page {
+            self.point(family.1);
+        }
         self.point(after);
         Ok(())
     }
@@ -253,7 +268,7 @@ fn worker_process() {
             }
             fault.armed.store(true, Ordering::SeqCst);
             let receipt = db
-                .commit(&transaction("crash", &["crash/a", "crash/b"], 7))
+                .commit(&crash_transaction(stage.starts_with("split-")))
                 .await
                 .unwrap();
             if stage == "after-ack" {
@@ -270,6 +285,48 @@ fn worker_process() {
                     ],
                     (writer * 10 + i) as i64,
                 ))
+                .await
+                .unwrap();
+            }
+        } else if mode == "hierarchy" {
+            db.create(
+                &format!("hierarchy-seed-{writer}"),
+                &format!("tree/{writer}/a/leaf"),
+                document(7),
+            )
+            .await
+            .unwrap();
+            for i in 0..4 {
+                db.commit(&transaction(
+                    &format!("hierarchy-put-{writer}-{i}"),
+                    &[&format!("tree/{writer}/a"), &format!("tree/{writer}/b")],
+                    i,
+                ))
+                .await
+                .unwrap();
+                if i == 0 {
+                    gate(
+                        &ready,
+                        &release.with_file_name("hierarchy-continue"),
+                        "first-pair",
+                    );
+                }
+                let deletes = [format!("tree/{writer}/a"), format!("tree/{writer}/b")]
+                    .into_iter()
+                    .map(|p| Mutation {
+                        path: DocumentPath::parse(&p).unwrap(),
+                        condition: Condition::Any,
+                        kind: MutationKind::Delete,
+                    })
+                    .collect();
+                db.commit(
+                    &Transaction::new(
+                        RequestId::new(format!("hierarchy-delete-{writer}-{i}")).unwrap(),
+                        deletes,
+                        vec![],
+                    )
+                    .unwrap(),
+                )
                 .await
                 .unwrap();
             }
@@ -376,6 +433,23 @@ impl Worker {
         }
         std::fs::read_to_string(&self.ready).unwrap()
     }
+    fn wait_label(&mut self, label: &str) {
+        let start = Instant::now();
+        loop {
+            if std::fs::read_to_string(&self.ready).ok().as_deref() == Some(label) {
+                return;
+            }
+            if self.exited() {
+                self.finish();
+                panic!("worker exited before expected label");
+            }
+            assert!(
+                start.elapsed() < Duration::from_secs(120),
+                "worker label timed out"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
     fn exited(&mut self) -> bool {
         self.child.as_mut().unwrap().try_wait().unwrap().is_some()
     }
@@ -412,6 +486,140 @@ fn launch_group(backend: &Backend, signals: &Path, mode: &str, count: usize) -> 
     }
     std::fs::write(release, "go").unwrap();
     workers
+}
+fn crash_transaction(split: bool) -> Transaction {
+    let mut paths = vec!["crash/a".to_owned(), "crash/b".to_owned()];
+    if split {
+        paths.extend((0..254).map(|i| format!("crash/{i:04}{}", "x".repeat(MAX_PATH_BYTES - 10))));
+    }
+    transaction(
+        "crash",
+        &paths.iter().map(String::as_str).collect::<Vec<_>>(),
+        7,
+    )
+}
+async fn snapshot_query(
+    snapshot: &Snapshot,
+    scope: &QueryScope,
+    children: bool,
+) -> Vec<QueryEntry> {
+    let mut cursor = None;
+    let mut entries = Vec::new();
+    loop {
+        let options = PageOptions::new(64).unwrap();
+        let page = if children {
+            snapshot.children(scope, options, cursor.as_ref()).await
+        } else {
+            snapshot.descendants(scope, options, cursor.as_ref()).await
+        }
+        .unwrap();
+        entries.extend(page.entries);
+        cursor = page.next;
+        if cursor.is_none() {
+            return entries;
+        }
+    }
+}
+async fn hierarchy_suite(backend: &Backend, signals: &Path) {
+    let backend = backend.isolated("hierarchy");
+    let mut workers = launch_group(&backend, signals, "hierarchy", 4);
+    for worker in &mut workers {
+        worker.wait_label("first-pair");
+    }
+    let db = backend.open().await;
+    let pinned = db.snapshot().await.unwrap();
+    let scope = QueryScope::path("tree/0").unwrap();
+    let first = pinned
+        .children(&scope, PageOptions::new(1).unwrap(), None)
+        .await
+        .unwrap();
+    assert_eq!(
+        first.entries[0].path,
+        DocumentPath::parse("tree/0/a").unwrap()
+    );
+    std::fs::write(signals.join("hierarchy-continue"), "go").unwrap();
+    let second = pinned
+        .children(&scope, PageOptions::new(1).unwrap(), first.next.as_ref())
+        .await
+        .unwrap();
+    assert_eq!(
+        second.entries[0].path,
+        DocumentPath::parse("tree/0/b").unwrap()
+    );
+    assert!(second.next.is_none());
+    assert_eq!(second.entries[0].document, document(0));
+    assert_eq!(second.entries[0].revision, first.entries[0].revision);
+    let start = Instant::now();
+    let mut scans = 0;
+    loop {
+        let snapshot = db.snapshot().await.unwrap();
+        for writer in 0..4 {
+            let a = number(&snapshot, &format!("tree/{writer}/a")).await;
+            let b = number(&snapshot, &format!("tree/{writer}/b")).await;
+            assert_eq!(a, b);
+            let scope = QueryScope::path(&format!("tree/{writer}")).unwrap();
+            let children = snapshot_query(&snapshot, &scope, true).await;
+            assert_eq!(children.len(), if a.is_some() { 2 } else { 0 });
+            for entry in children {
+                let stored = snapshot.get(&entry.path).await.unwrap().unwrap();
+                assert_eq!(entry.document, stored.document);
+                assert_eq!(entry.revision, stored.revision);
+            }
+            let descendants = snapshot_query(&snapshot, &scope, false).await;
+            assert_eq!(descendants.len(), if a.is_some() { 3 } else { 1 });
+        }
+        scans += 1;
+        if workers.iter_mut().all(Worker::exited) {
+            break;
+        }
+        assert!(
+            start.elapsed() < Duration::from_secs(180),
+            "hierarchy writers timed out"
+        );
+    }
+    for worker in &mut workers {
+        worker.finish();
+    }
+    let latest = backend.open().await.snapshot().await.unwrap();
+    assert_eq!(latest.sequence(), 36);
+    assert_eq!(
+        snapshot_query(&latest, &QueryScope::Root, false)
+            .await
+            .len(),
+        4
+    );
+    assert!(
+        snapshot_query(&latest, &QueryScope::Root, true)
+            .await
+            .is_empty()
+    );
+    for writer in 0..4 {
+        assert!(
+            db.resolve(&format!("hierarchy-seed-{writer}"))
+                .await
+                .unwrap()
+                .is_some()
+        );
+        for i in 0..4 {
+            for op in ["put", "delete"] {
+                assert!(
+                    db.resolve(&format!("hierarchy-{op}-{writer}-{i}"))
+                        .await
+                        .unwrap()
+                        .is_some()
+                );
+            }
+        }
+    }
+    assert_eq!(
+        snapshot_query(&pinned, &QueryScope::Root, false)
+            .await
+            .len(),
+        12
+    );
+    eprintln!(
+        "multiprocess hierarchy: 4 writers, 36 committed outcomes, {scans} pinned scans; parent deletion and pinned page resumption preserved"
+    );
 }
 async fn suite(backend: Backend, signals: &Path) {
     let distinct = backend.isolated("distinct");
@@ -481,6 +689,8 @@ async fn suite(backend: Backend, signals: &Path) {
     assert_eq!(snapshot.sequence(), 17);
     eprintln!("multiprocess: 4 contending writers preserved 16 conditional increments");
 
+    hierarchy_suite(&backend, signals).await;
+
     for stage in [
         "after-head-read",
         "after-snapshot-read",
@@ -490,6 +700,17 @@ async fn suite(backend: Backend, signals: &Path) {
         "after-manifest",
         "before-page",
         "after-page",
+        "before-document-page",
+        "after-document-page",
+        "before-request-page",
+        "after-request-page",
+        "before-membership-page",
+        "after-membership-page",
+        "split-after-document-page",
+        "split-after-membership-page",
+        "split-after-request-page",
+        "split-after-manifest",
+        "split-after-publication",
         "before-outcome",
         "after-outcome",
         "before-publication",
@@ -510,10 +731,28 @@ async fn suite(backend: Backend, signals: &Path) {
         let a = number(&snapshot, "crash/a").await;
         let b = number(&snapshot, "crash/b").await;
         assert_eq!(a, b);
-        let published = stage == "after-publication" || stage == "after-ack";
+        let effective_stage = stage.strip_prefix("split-").unwrap_or(stage);
+        if effective_stage != "after-ack" {
+            assert_eq!(marker, effective_stage, "wrong fault stage reached");
+        }
+        let published = effective_stage == "after-publication" || effective_stage == "after-ack";
         assert_eq!(a.is_some(), published, "unexpected publication at {stage}");
         let outcome = reopened.resolve("crash").await.unwrap();
         assert_eq!(outcome.is_some(), published);
+        let scope = QueryScope::path("crash").unwrap();
+        let children = snapshot_query(&snapshot, &scope, true).await;
+        assert_eq!(
+            children.len(),
+            if published {
+                if stage.starts_with("split-") { 256 } else { 2 }
+            } else {
+                0
+            }
+        );
+        assert_eq!(
+            snapshot_query(&snapshot, &scope, false).await.len(),
+            children.len()
+        );
         if stage == "after-ack" {
             assert_eq!(
                 marker,
@@ -521,7 +760,7 @@ async fn suite(backend: Backend, signals: &Path) {
             );
         }
         let receipt = reopened
-            .commit(&transaction("crash", &["crash/a", "crash/b"], 7))
+            .commit(&crash_transaction(stage.starts_with("split-")))
             .await
             .unwrap();
         if let Some(original) = outcome {

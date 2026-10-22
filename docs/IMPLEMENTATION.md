@@ -15,7 +15,7 @@ Each completed cycle is committed separately. See git history for exact commits.
 - [x] 11. Immutable ordered metadata pages, root and receipt primitives.
 - [x] 12. Paged snapshots, transactions and atomic hierarchy membership.
 - [x] 13. Bulk reads and bounded hierarchy APIs.
-- [ ] 14. Pagination, multiprocess/crash and scaling qualification.
+- [x] 14. Pagination, multiprocess/crash and scaling qualification.
 
 ## Evidence
 
@@ -115,8 +115,8 @@ run successfully with a configured isolated bucket prefix and external credentia
 No test bucket/prefix was supplied in this session; neither real S3 nor an emulator
 was exercised. The S3 source and adapter logic were inspected/tested locally.
 
-CI definitions cover Linux, macOS and Windows, but remote CI has not run in this
-session. Folder durability is limited to local POSIX filesystems; Windows folder
+Linux, macOS and Windows CI passed on query-foundation PRs #2, #3 and #4. The
+cycle-14 PR carries its own CI results. Folder durability is limited to local POSIX filesystems; Windows folder
 opening explicitly returns unsupported. Network filesystems and hardware power-loss
 durability remain unverified. Process termination tests cover engine operation
 boundaries and the folder rename-before-sync window, not every instruction within
@@ -127,9 +127,9 @@ automatically reclaimed. Paged metadata now removes whole-manifest rewrites; sin
 retained-history growth still limit the prototype. Field indexes,
 compaction, reclamation, backup/restore and transport remain deferred as scoped.
 
-Next milestone: complete pagination/crash/scale qualification for the new
-bulk/hierarchy APIs. Actual-S3 qualification remains parallel and externally configured.
-Scalar field indexes follow query foundations; compaction/reclamation remain deferred.
+The four query-foundation implementation milestones are complete locally.
+Actual-S3 qualification remains parallel and externally configured. Scalar field
+indexes are the next implementation block; compaction/reclamation remain deferred.
 
 ## Query foundations cycle 11 evidence
 
@@ -216,3 +216,74 @@ the same persisted revisions, demonstrating request deduplication on reopen.
 
 Multiprocess query visibility, larger scaling/capacity measurements, and the final
 acceptance audit remain cycle 14. Actual AWS S3 qualification remains pending.
+
+Cycle 13 remote delivery: PR #4 merged, with Linux, macOS and Windows CI checks
+observed passing. Primary was synchronized and the cycle's worktree/branch removed.
+
+## Query foundations cycle 14 evidence
+
+Optional engine diagnostics distinguish metadata families, receipt objects, and
+payload ranges without adding query semantics to storage. The new release scaling
+example and the existing baseline build independently for folder and S3. Both
+report logical adapter operations rather than physical HTTP requests. No cache is
+required or enabled for structural qualification.
+
+Tree updates now leave unrelated sparse fringe pages untouched; a reproducer
+failed with four uploads before the fix and passes with exactly the changed leaf
+and root afterward. A descriptor/header count check precedes page entry allocations.
+Additional checksummed malformed-page tests cover semantic corruption and missing
+children. Lost request-page reads after a concealed successful publication retain
+an uncertain outcome until later resolution returns the original receipt.
+
+Final local checks on 2026-10-22: **59 workspace tests passed, three ignored**.
+The ignores are two actual-AWS tests and the explicit large capacity workload.
+Formatting, strict all-feature workspace Clippy, folder-only and S3-only facade
+Clippy, and no-default-feature workspace checking passed. An explicit S3-only
+check of both measurement examples also passed. The release capacity test ran
+separately and passed in 309.80 seconds: 100,000 documents, 91,200,000 actual live
+location key/value bytes, a 381-byte root, and five location pages for one update.
+It also verified reopening, original receipts, and historical reads after edits.
+
+The recorded POSIX multiprocess run completed six disjoint writers/24 atomic pairs,
+six identical requests committing once, and four contending writers/16 conditional
+increments. Four hierarchy writers completed 36 outcomes while readers performed
+343 pinned scans; document values/revisions matched immediate membership, parent
+deletion preserved leaves, and pinned page resumption survived concurrent writes.
+All 24 intended commit-boundary kill markers were reached, including five
+256-document split-producing batches. Documents, hierarchy entries, and request
+outcomes appeared together or remained absent together. OS-lock death and the
+adapter's rename-before-directory-sync recovery tests also passed.
+
+The full release workload reached 100, 1,000, 10,000 and 100,000 live documents
+and 100, 1,000 and 10,000 distinct requests repeatedly updating one document.
+Every open transferred 795 logical bytes and read no tree/payload/receipt objects.
+Point/range work followed tree height, and replacing documents created no membership
+pages. Small-dataset writes were slower than v1 because of additional object
+operations; repeated point traversals in bulk/children remain measurable overhead.
+Retained storage still grows, and contention still serializes through HEAD.
+Commands, environment, full counters, distributions, and before/after comparisons
+are in [BASELINE.md](BASELINE.md) and its linked measurement output.
+An additional contended baseline reconciles per-writer immutable uploads against
+global counters: 802,620 bytes for 40 successful attempts versus 3,541,629 bytes
+abandoned after 187 conflicts, with zero pending/unclassified uploads. This
+benchmark accounting changes no engine/storage publication behavior.
+
+### Completed-plan acceptance audit
+
+| Criterion | Evidence |
+| --- | --- |
+| Lazy startup, relevant-page work, local updates | Root-only counters; selective one-child query with 3,072 deeper documents; exact unchanged child references; 100,000-document scaling and capacity runs |
+| Ordered, bounded, immutable metadata | Reference-map randomized edits/scans; split/merge/collapse, maximum paths, large receipts, hostile bytes/checksummed semantics, family/version/level/separator validation, aggregate budgets |
+| Bulk/root/hierarchy semantics | Type and facade reference tests for ordered duplicate/missing inputs, virtual root, missing ancestors, escaped boundaries, parent deletion, persisted membership |
+| Snapshot pagination and mismatch errors | Query tests across insert/update/delete and reopen; typed query/database/snapshot/version/position mismatch checks; 16 MiB pages resume without skipping; independent-process pinned continuation |
+| Atomic publication and preserved write guarantees | Expanded process-kill and hierarchy suites; original receipt/fingerprint/revision tests; lazy resolution-read faults; final lookup after conflicts; durable observed-HEAD tests |
+| Metadata-only publication and compatibility | Logically equivalent rewrite preserves revisions/receipts; stale roots fail CAS; v1 opening rejects before writes; opaque references and retained history |
+| Resource and former-capacity bounds | Low decoded/page/response budgets fail explicitly; checksums/counts fail before entry allocation; live location metadata exceeds 64 MiB; all required local checks pass |
+| Developer experience and rollout | Thin facade and runnable query example; async revision and v2 fresh-folder/prefix break documented; no migration, transport, reclamation, or scalar indexes introduced |
+| AWS qualification status | Pending dedicated external bucket/prefix; no actual AWS or emulator run, no remote cleanup or embedded credentials |
+
+No hardware power-loss, network-filesystem, Windows-folder durability, bounded
+history retention, or universal latency claim follows from these results. Field
+index definitions/ordered scalar encodings, transactional old-entry removal, and
+resumable build/reconciliation/activation through the internal publisher remain
+the immediate follow-on, outside this Task.

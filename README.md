@@ -54,7 +54,7 @@ The S3 example requires `OBELISK_S3_BUCKET` and `OBELISK_S3_PREFIX`.
 
 ## Current limits
 
-There are no indexed queries, compaction, garbage collection, backup/restore, or
+There are no field-filtered queries, compaction, garbage collection, backup/restore, or
 network protocol yet. Nothing automatically reclaims committed history, orphaned
 uploads, or abandoned temporary files. Immutable segments grow with writes; metadata uses immutable copy-on-write B+
 pages with separate document, request,
@@ -151,3 +151,15 @@ Run the complete facade example against a v2 POSIX folder:
 ```sh
 cargo run -p obelisk --example queries -- /tmp/obelisk-queries
 ```
+
+The release scaling workload measures live documents and retained request history:
+
+```sh
+OBELISK_BASELINE_BACKEND=folder cargo run --release -p obelisk --example scaling --locked
+```
+
+See [qualification measurements](docs/BASELINE.md) for the 100,000-document run,
+capacity beyond the former manifest bound, and current small-operation costs.
+Optional `diagnostics::InstrumentedMetadata` counters distinguish metadata families
+from payload reads; they measure logical bytes, not HTTP requests or allocator RSS.
+Actual AWS S3 qualification still requires external bucket/prefix configuration.
