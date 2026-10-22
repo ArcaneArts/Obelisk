@@ -58,13 +58,15 @@ Every head payload must contain a fresh commit identity to prevent ABA.
 Use explicit bounded binary encodings with format-kind/version envelopes and BLAKE3
 checksums. Keys encode segment boundaries. Metadata indexes document locations and
 request outcomes separately from document payloads, so opening reads metadata only.
-Initial manifests may grow with document/request counts; initial segments are sorted
-immutable batches. No history replay, automatic compaction, or reclamation is required.
+The historical v1 manifests grew with document/request counts. Current v2
+metadata uses immutable ordered pages; document segments remain sorted batches. No history replay, automatic compaction, or reclamation is required.
 
 Default limits: 1 MiB encoded document, 1024 fields/document, 10000 list elements,
 256 mutations and 256 explicit read conditions/batch, 16 MiB encoded transaction,
 64 MiB metadata/object envelope, and 128 MiB total byte budget for a decoded object.
 Public constructors and persistent decoders enforce bounded recursion and allocation.
+V2 metadata page/root and aggregate operation budgets below replace the former
+whole-manifest limit; legacy segment/value envelope bounds remain unchanged.
 Prepared metadata is validated against reader limits before publication so the
 engine cannot commit a manifest that its own bounded reader cannot reopen.
 These are initial safety bounds, not performance claims; expose configurable engine
@@ -89,8 +91,8 @@ Use separate immutable copy-on-write B+ trees for document locations, request
 outcomes, and parent membership. The fixed-size root has three optional tree
 references, identities, sequence, and a required membership capability. Empty trees
 have no page. Document segments and transaction fingerprints retain their v1
-encodings. This primitives cycle does not switch the production writer or migrate
-existing databases; paged integration will introduce an explicit HEAD version break.
+encodings. The primitives cycle introduced these formats additively. Paged
+integration now uses HEAD/root v2 and rejects v1 databases explicitly, without migration.
 
 Pages target 16 KiB, have a 64 KiB encoded hard limit, and support at most 4096
 entries and 32 levels (leaf level zero). Keys are at most 8704 bytes; leaf values
@@ -112,3 +114,20 @@ cannot contain NUL. Membership keys insert an additional NUL before the final
 segment, delimiting the parent scope (including virtual root). This preserves
 structured path and `(parent, final segment)` order without interpreting escaped
 textual delimiters as boundaries. Scalar index encodings are separate future work.
+
+## Paged engine integration
+
+Snapshots hold fixed-size tree roots and load pages only for targeted operations.
+Latest reads still fetch authoritative HEAD. `Snapshot::revision` is async and
+returns an owned optional revision. `EngineOptions.resources` supplies validated
+operation budgets; nonzero values may lower the defaults but cannot exceed the
+hard safety maxima. Reader budgets also cover document/receipt decoding, and
+prepared records are checked against bounded readers before publication.
+
+Successful request fingerprints and original receipts survive metadata-only
+publications. Metadata-only work gets a fresh commit/sequence while preserving
+document revisions and application outcomes. The common internal publisher checks
+base identity/sequence and persists objects/root before HEAD CAS. Conflicting
+metadata work must revalidate from a fresh snapshot rather than rebase stale roots.
+Parent membership changes only when document existence changes; deleting a parent
+preserves descendants and their entries. No hierarchy backfill is needed later.

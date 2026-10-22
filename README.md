@@ -56,10 +56,12 @@ The S3 example requires `OBELISK_S3_BUCKET` and `OBELISK_S3_PREFIX`.
 
 There are no indexed queries, compaction, garbage collection, backup/restore, or
 network protocol yet. Nothing automatically reclaims committed history, orphaned
-uploads, or abandoned temporary files. Immutable segments grow with writes; complete
-metadata is rewritten per commit and is limited to 64 MiB. Opening is independent
-of payload size but proportional to metadata size. Large databases will need shared
-metadata pages and compaction. One head serializes commits per database and can
+uploads, or abandoned temporary files. Immutable segments grow with writes; metadata uses immutable copy-on-write B+
+pages with separate document, request,
+and parent-membership roots. Opening reads only HEAD and a small root manifest;
+point operations load relevant pages. Total metadata is no longer limited by one
+64 MiB manifest. Historical pages, receipts, and payloads still accumulate without
+compaction or reclamation. One head serializes commits per database and can
 cause retries even for disjoint writes.
 
 Values and field paths are validated, with fixed initial resource limits described
@@ -85,3 +87,18 @@ cargo check --workspace --no-default-features --locked
 - [Persistent format](docs/FORMAT.md)
 - [Validation and measured baseline](docs/BASELINE.md)
 - [Implementation checklist and verification gaps](docs/IMPLEMENTATION.md)
+
+## Paged-format compatibility and limits
+
+Fresh databases use HEAD/root format v2. Existing v1 databases fail explicitly
+before writes; opening never migrates or resets them. Preserve old data and use a
+fresh folder/prefix for v2. Old binaries reject v2 HEAD before transactions.
+Document record and canonical transaction fingerprint encodings remain unchanged.
+
+`Snapshot::revision(&path).await?` now returns an owned `Option<Revision>` because
+metadata loads lazily. `DatabaseOptions.resources` accepts validated limits for
+metadata page reads, metadata transfer, decoded allocation, and prepared metadata.
+Defaults are 4096 page reads and 64 MiB for each byte budget; lower nonzero limits
+are allowed. Hard page/root/receipt bounds remain independent of these options.
+Parent membership is maintained atomically now; public hierarchy/bulk APIs follow
+in the next cycle. Scalar field indexes remain separate subsequent work.

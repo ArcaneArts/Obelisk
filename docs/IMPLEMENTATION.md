@@ -13,7 +13,7 @@ Each completed cycle is committed separately. See git history for exact commits.
 - [x] 9. Multiprocess/crash harness, local validation and measurements.
 - [x] 10. Recover interrupted folder publication before acknowledging observed heads.
 - [x] 11. Immutable ordered metadata pages, root and receipt primitives.
-- [ ] 12. Paged snapshots, transactions and atomic hierarchy membership.
+- [x] 12. Paged snapshots, transactions and atomic hierarchy membership.
 - [ ] 13. Bulk reads and bounded hierarchy APIs.
 - [ ] 14. Pagination, multiprocess/crash and scaling qualification.
 
@@ -123,13 +123,13 @@ boundaries and the folder rename-before-sync window, not every instruction withi
 filesystem or transport implementations.
 
 History, orphaned uploads, request outcomes, and abandoned temporary files are not
-automatically reclaimed. Metadata is fully rewritten per commit, bounded to 64 MiB;
-its growth and single-head contention limit this prototype. Queries, indexes,
+automatically reclaimed. Paged metadata now removes whole-manifest rewrites; single-head contention and
+retained-history growth still limit the prototype. Public discovery queries, field indexes,
 compaction, reclamation, backup/restore and transport remain deferred as scoped.
 
-Next milestone: complete actual-S3 qualification, then build hierarchy/field indexes
-with transactional maintenance and plan shared metadata pages and compaction using
-the measured contention and metadata-growth evidence.
+Next milestones: expose bulk/hierarchy discovery and complete pagination/crash/scale
+qualification. Actual-S3 qualification remains parallel and externally configured.
+Scalar field indexes follow query foundations; compaction/reclamation remain deferred.
 
 ## Query foundations cycle 11 evidence
 
@@ -138,8 +138,8 @@ checksummed family-specific B+ pages, fixed-size root references, separate large
 receipt objects, bounded point/range reads, and coalesced copy-on-write batch
 updates with sibling rebalancing and root collapse. Only reachable prepared pages
 are uploaded. Existing pages and historical roots remain immutable and unreclaimed.
-The production snapshot/transaction engine still uses v1; paged integration and
-public query APIs are cycles 12–14, not completed by this primitives cycle.
+At cycle 11 the production writer remained v1; paged integration and public
+query APIs belonged to subsequent cycles 12–14.
 
 Local validation on 2026-10-22: 42 workspace tests passed and two actual-AWS-S3
 tests were explicitly ignored. Formatting, strict workspace all-feature Clippy,
@@ -150,3 +150,37 @@ failures before reads, large receipts, maximum paths across multiple tree levels
 shuffled deletion/fanout checks, bounded range continuation, and subtree reuse.
 These tree tests use an in-memory byte adapter and do not qualify actual S3.
 No performance or hardware-power-loss claim is made. Actual S3 remains pending.
+
+Cycle 11 remote delivery: PR #2 merged, with Linux, macOS, and Windows CI checks
+observed passing. Its clean worktree remains temporarily registered because
+Cantrip refused removal due to a reported binding; no forced cleanup was used.
+
+## Query foundations cycle 12 evidence
+
+Fresh databases use HEAD/root v2 with independently addressable location, outcome,
+and parent-membership trees. Opening reads only HEAD and the bounded root. Existing
+v1 databases fail explicitly before writes. Document records and canonical
+fingerprints retain v1 encodings. Revision lookup is async and owned; resource
+limits are configured through `DatabaseOptions.resources`.
+
+Transactions prepare immutable payloads, receipt objects, changed tree pages and
+root before conditional publication. Membership changes atomically with document
+existence; patches preserve unchanged membership pages. The internal publisher
+also supports metadata-only roots while preserving document revisions and original
+request receipts. Historical references remain opaque and retained. Conflict
+retries recompute from fresh roots, with deduplication before conditions.
+
+Local validation on 2026-10-22: 46 workspace tests passed, with two actual-S3 tests
+explicitly ignored. Formatting, strict workspace all-feature Clippy, facade
+folder-only and S3-only Clippy, and no-default-feature workspace checking passed.
+New integration evidence includes root-only startup despite corrupt document
+reads, full 256-mutation batches with 4004-byte paths and receipts larger than a
+page, split/collapse/reopen history, metadata-only publication and stale-root CAS
+rejection, atomic membership transitions, explicit v1 rejection, and resource
+failure without publication. The folder subprocess suite now reaches 13 commit
+boundaries using object-kind classification, including page and receipt uploads.
+The adapter's rename-before-directory-sync recovery tests remain passing.
+
+No actual AWS S3 or hardware power-loss validation ran. Public bulk/hierarchy
+APIs and scaling qualification remain cycles 13–14. Total retained data and
+single-HEAD contention remain unbounded operational concerns.
