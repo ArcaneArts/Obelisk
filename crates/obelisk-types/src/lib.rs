@@ -1,10 +1,12 @@
 //! Validated public types, independent of persistent encoding.
 mod document;
 mod path;
+mod query;
 mod transaction;
 mod value;
 pub use document::*;
 pub use path::*;
+pub use query::*;
 pub use transaction::*;
 pub use value::*;
 

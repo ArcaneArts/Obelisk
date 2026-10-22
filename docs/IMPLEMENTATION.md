@@ -14,7 +14,7 @@ Each completed cycle is committed separately. See git history for exact commits.
 - [x] 10. Recover interrupted folder publication before acknowledging observed heads.
 - [x] 11. Immutable ordered metadata pages, root and receipt primitives.
 - [x] 12. Paged snapshots, transactions and atomic hierarchy membership.
-- [ ] 13. Bulk reads and bounded hierarchy APIs.
+- [x] 13. Bulk reads and bounded hierarchy APIs.
 - [ ] 14. Pagination, multiprocess/crash and scaling qualification.
 
 ## Evidence
@@ -124,11 +124,11 @@ filesystem or transport implementations.
 
 History, orphaned uploads, request outcomes, and abandoned temporary files are not
 automatically reclaimed. Paged metadata now removes whole-manifest rewrites; single-head contention and
-retained-history growth still limit the prototype. Public discovery queries, field indexes,
+retained-history growth still limit the prototype. Field indexes,
 compaction, reclamation, backup/restore and transport remain deferred as scoped.
 
-Next milestones: expose bulk/hierarchy discovery and complete pagination/crash/scale
-qualification. Actual-S3 qualification remains parallel and externally configured.
+Next milestone: complete pagination/crash/scale qualification for the new
+bulk/hierarchy APIs. Actual-S3 qualification remains parallel and externally configured.
 Scalar field indexes follow query foundations; compaction/reclamation remain deferred.
 
 ## Query foundations cycle 11 evidence
@@ -184,3 +184,35 @@ The adapter's rename-before-directory-sync recovery tests remain passing.
 No actual AWS S3 or hardware power-loss validation ran. Public bulk/hierarchy
 APIs and scaling qualification remain cycles 13–14. Total retained data and
 single-HEAD contention remain unbounded operational concerns.
+
+Cycle 12 remote delivery: PR #3 merged, with Linux, macOS, and Windows CI checks
+observed passing. Primary was synchronized and the cycle's worktree/branch removed.
+
+## Query foundations cycle 13 evidence
+
+The facade and snapshots expose ordered bulk reads and bounded children/descendant
+pages, including virtual root. Bulk reads preserve duplicates and missing entries;
+string inputs and count bounds are checked before storage reads. Children seek
+exact membership scopes, descendants seek structured location-key prefixes, and
+neither synthesizes missing ancestors or includes the scope document.
+
+Opaque typed cursors bind committed snapshot, query kind/scope, ordering version,
+and last emitted key. They can resume through a reopened engine after writes;
+page budgets may change without changing query identity. Mismatched database,
+snapshot, query, version or position yields an explicit cursor error. Returned
+values, parsed paths, bulk clones, and cursor identities receive memory charges.
+A metadata-only lookahead avoids fetching an extra document payload. No portable
+cursor decoder, transport, field filtering, or reclamation was added.
+
+Local validation on 2026-10-22: 54 workspace tests passed and two actual-S3 tests
+were explicitly ignored. Formatting, strict workspace all-feature Clippy, facade
+folder-only and S3-only Clippy, and the no-default-feature workspace check passed.
+Six facade query tests and native/type tests cover structured reference results,
+missing parents, escaped boundaries, parent deletion, bulk duplication/missing
+entries, invalid input before I/O, snapshot-pinned resumption after writes and
+reopen, cursor mismatches, and byte-limited pages without skipped prefetches.
+The facade query example ran twice against one temporary POSIX folder and returned
+the same persisted revisions, demonstrating request deduplication on reopen.
+
+Multiprocess query visibility, larger scaling/capacity measurements, and the final
+acceptance audit remain cycle 14. Actual AWS S3 qualification remains pending.

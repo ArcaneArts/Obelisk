@@ -100,5 +100,54 @@ metadata loads lazily. `DatabaseOptions.resources` accepts validated limits for
 metadata page reads, metadata transfer, decoded allocation, and prepared metadata.
 Defaults are 4096 page reads and 64 MiB for each byte budget; lower nonzero limits
 are allowed. Hard page/root/receipt bounds remain independent of these options.
-Parent membership is maintained atomically now; public hierarchy/bulk APIs follow
-in the next cycle. Scalar field indexes remain separate subsequent work.
+Parent membership is maintained atomically with document mutations. Scalar field indexes remain separate subsequent work.
+
+## Bulk reads and hierarchy discovery
+
+`db.get_many(&["a", "missing", "a"]).await?` preserves input order, duplicates,
+and missing entries. Use `get_many_paths` for structured paths. Both accept at
+most 256 inputs and fail rather than return a partial vector on resource errors.
+All inputs are validated before storage reads, and each bulk read uses one snapshot.
+
+```rust
+# async fn example(db: &obelisk::Database) -> obelisk::Result<()> {
+use obelisk::{PageOptions, QueryScope};
+let scope = QueryScope::path("projects")?;
+let options = PageOptions::new(50)?;
+let mut cursor = None;
+loop {
+    let page = db.children(&scope, options, cursor.as_ref()).await?;
+    for entry in page.entries {
+        println!("{} @ {}", entry.path, entry.revision);
+    }
+    cursor = page.next;
+    if cursor.is_none() { break; }
+}
+# Ok(())
+# }
+```
+
+Use `descendants` for all greater depths and `QueryScope::Root` for the virtual
+root. Missing ancestors are not synthesized. Deleting a parent preserves its
+descendants. Results follow structured path order with escaped boundaries intact.
+The same methods exist on `Snapshot` for explicitly pinned reads.
+
+Pages default to 100 entries, accept at most 256, and bound encoded document-entry
+bytes to 16 MiB; `with_byte_limit` can lower that budget. Aggregate decoded and
+metadata-work limits also apply. Reads currently execute sequentially, within the
+maximum allowed concurrency of eight. A page may be shorter due to its byte limit;
+a document too large for an empty page returns a resource error.
+
+`QueryPage` contains its snapshot reference, entries, and optional opaque Rust
+`QueryCursor`. Continuations retain their original snapshot even when resumed
+through a reopened database after writes. Page size/byte budgets may change;
+query scope and kind may not. Cross-database or mismatched-snapshot tokens fail
+explicitly. Cursors have no public serialization/decoder and do not expire while
+history is retained. They need no server-side session. Filtering and field ordering
+require the subsequent scalar-index block.
+
+Run the complete facade example against a v2 POSIX folder:
+
+```sh
+cargo run -p obelisk --example queries -- /tmp/obelisk-queries
+```

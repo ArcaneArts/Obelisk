@@ -128,7 +128,7 @@ impl Engine {
         self.load_snapshot(reference.0, VersionToken(String::new()), &mut budget)
             .await
     }
-    async fn load_snapshot(
+    pub(crate) async fn load_snapshot(
         &self,
         reference: HeadRef,
         version: VersionToken,
@@ -250,6 +250,14 @@ impl Snapshot {
         let Some(location) = self.location(path, budget).await? else {
             return Ok(None);
         };
+        self.read_location(path, location, budget).await
+    }
+    pub(crate) async fn read_location(
+        &self,
+        path: &DocumentPath,
+        location: format::Location,
+        budget: &mut Budget,
+    ) -> Result<Option<VersionedDocument>> {
         budget.charge_decoded((location.range.end - location.range.start) as usize)?;
         let bytes = self
             .store

@@ -4,7 +4,8 @@
 //! multi-document reads. Successful request IDs and outcomes are retained
 //! indefinitely; retry uncertain writes with the same request ID and payload.
 pub use obelisk_engine::{
-    EngineOptions as DatabaseOptions, Error, ResourceLimits, Result, Snapshot, SnapshotReference,
+    EngineOptions as DatabaseOptions, Error, QueryCursor, QueryPage, ResourceLimits, Result,
+    Snapshot, SnapshotReference,
 };
 pub use obelisk_storage as storage;
 pub use obelisk_types::*;
@@ -44,6 +45,38 @@ impl Database {
     }
     pub async fn get_path(&self, path: &DocumentPath) -> Result<Option<VersionedDocument>> {
         self.engine.get(path).await
+    }
+    pub async fn get_many(&self, paths: &[&str]) -> Result<Vec<Option<VersionedDocument>>> {
+        if paths.len() > MAX_QUERY_ITEMS {
+            return Err(Error::ResourceLimit("bulk path count"));
+        }
+        let paths = paths
+            .iter()
+            .map(|p| DocumentPath::parse(p))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        self.get_many_paths(&paths).await
+    }
+    pub async fn get_many_paths(
+        &self,
+        paths: &[DocumentPath],
+    ) -> Result<Vec<Option<VersionedDocument>>> {
+        self.engine.get_many(paths).await
+    }
+    pub async fn children(
+        &self,
+        scope: &QueryScope,
+        options: PageOptions,
+        cursor: Option<&QueryCursor>,
+    ) -> Result<QueryPage> {
+        self.engine.children(scope, options, cursor).await
+    }
+    pub async fn descendants(
+        &self,
+        scope: &QueryScope,
+        options: PageOptions,
+        cursor: Option<&QueryCursor>,
+    ) -> Result<QueryPage> {
+        self.engine.descendants(scope, options, cursor).await
     }
     pub async fn snapshot(&self) -> Result<Snapshot> {
         self.engine.snapshot().await

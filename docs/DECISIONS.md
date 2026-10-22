@@ -131,3 +131,27 @@ base identity/sequence and persists objects/root before HEAD CAS. Conflicting
 metadata work must revalidate from a fresh snapshot rather than rebase stale roots.
 Parent membership changes only when document existence changes; deleting a parent
 preserves descendants and their entries. No hierarchy backfill is needed later.
+
+## Bulk and hierarchy query API
+
+`QueryScope` distinguishes virtual root from validated document paths. Bulk reads
+preserve order/duplicates/missing entries, accept at most 256 paths, and use one
+snapshot. String inputs are all validated before storage reads. A bounded
+operation-local map deduplicates physical bulk lookups; returned clones are charged
+against memory and response limits.
+
+Hierarchy pages return path/document/revision entries in structured ascending path
+order. Children use exact parent-membership ranges; descendants use location-tree
+segment-prefix ranges. Neither includes the scope document or synthesized parents.
+Pages default to 100 entries, cap at 256 and 16 MiB encoded document-entry bytes,
+and may use a lower caller byte limit. Memory and metadata-work caps also apply.
+Fetching is currently sequential (below the allowed eight-read concurrency cap).
+One metadata-key lookahead determines continuation without fetching its payload.
+
+Opaque native Rust cursors bind committed snapshot, scope, query kind, ordering
+version, and last emitted key. There is no public decoder or server session.
+Resumption seeks strictly after that key in the same retained snapshot, including
+through another engine instance. Page sizes and byte budgets may change without
+changing the logical query. Query/database/snapshot/version/position mismatches
+are explicit cursor errors. Portable string tokens and snapshot expiration remain
+outside this retained-history, transport-free block.
