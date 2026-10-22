@@ -3,7 +3,7 @@ pub mod format;
 mod snapshot;
 mod transaction;
 use obelisk_types::{DocumentPath, RequestId};
-pub use snapshot::{Engine, EngineOptions, Snapshot};
+pub use snapshot::{Engine, EngineOptions, Snapshot, SnapshotReference};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -21,6 +21,8 @@ pub enum Error {
     MissingDocument(DocumentPath),
     #[error("request ID used for a different transaction: {0}")]
     RequestIdReuse(RequestId),
+    #[error("resource limit: {0}")]
+    ResourceLimit(&'static str),
     #[error("retry budget exhausted")]
     RetryExhausted,
     #[error(

@@ -1,4 +1,5 @@
 //! Byte-oriented contract. No document or transaction semantics live here.
+pub mod metrics;
 use async_trait::async_trait;
 use bytes::Bytes;
 use std::ops::Range;
@@ -59,6 +60,8 @@ pub struct Head {
 
 /// All successful creates are durable and readable before returning. Immutable
 /// creates never replace existing bytes. Head reads/CAS are linearizable.
+/// A returned head is durable even when its publisher died before acknowledging
+/// it; adapters must complete any interrupted publication barrier before returning.
 /// `None` expects an absent head (race-safe database initialization).
 /// Head payloads must include a unique commit identity on every publication.
 /// Cancellation/transport failures may leave unpublished objects or an uncertain

@@ -51,8 +51,34 @@ impl TypedList {
             element_type,
             values,
         };
-        Value::List(list.clone()).validate()?;
+        list.size_at(0)?;
         Ok(list)
+    }
+    fn size_at(&self, depth: usize) -> Result<usize> {
+        let mut declared = &self.element_type;
+        let mut total_depth = depth + 1;
+        while let ValueType::List(inner) = declared {
+            total_depth += 1;
+            declared = inner;
+        }
+        if total_depth > MAX_DEPTH {
+            return Err(invalid("list type nesting limit"));
+        }
+        if self.values.len() > MAX_LIST_ITEMS {
+            return Err(invalid("list length limit"));
+        }
+        let mut size = 40;
+        for value in &self.values {
+            let item_size = value.size_at(depth + 1)?;
+            if value.value_type() != self.element_type {
+                return Err(invalid("heterogeneous list"));
+            }
+            size += item_size;
+            if size > MAX_DOCUMENT_BYTES {
+                return Err(invalid("value byte limit"));
+            }
+        }
+        Ok(size)
     }
     pub fn element_type(&self) -> &ValueType {
         &self.element_type
@@ -99,24 +125,7 @@ impl Value {
             Self::String(v) => 5 + v.len(),
             Self::Integer(_) | Self::Double(_) => 9,
             Self::Boolean(_) => 2,
-            Self::List(list) => {
-                list.element_type.validate()?;
-                if list.values.len() > MAX_LIST_ITEMS {
-                    return Err(invalid("list length limit"));
-                }
-                let mut size = 40;
-                for v in &list.values {
-                    let item_size = v.size_at(depth + 1)?;
-                    if v.value_type() != list.element_type {
-                        return Err(invalid("heterogeneous list"));
-                    }
-                    size += item_size;
-                    if size > MAX_DOCUMENT_BYTES {
-                        return Err(invalid("value byte limit"));
-                    }
-                }
-                size
-            }
+            Self::List(list) => list.size_at(depth)?,
         };
         if size > MAX_DOCUMENT_BYTES {
             return Err(invalid("value byte limit"));
@@ -145,6 +154,15 @@ mod tests {
             )
             .is_err()
         );
+    }
+    #[test]
+    fn nesting_limit_includes_declared_empty_list_types() {
+        let mut element_type = ValueType::Integer;
+        for _ in 0..MAX_DEPTH {
+            assert!(TypedList::new(element_type.clone(), vec![]).is_ok());
+            element_type = ValueType::List(Box::new(element_type));
+        }
+        assert!(TypedList::new(element_type, vec![]).is_err());
     }
     #[test]
     fn double_rules() {

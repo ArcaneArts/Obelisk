@@ -3,8 +3,9 @@
 //! Latest reads fetch the authoritative head. Use a Snapshot for consistent
 //! multi-document reads. Successful request IDs and outcomes are retained
 //! indefinitely; retry uncertain writes with the same request ID and payload.
-pub use obelisk_engine::format::HeadRef as SnapshotReference;
-pub use obelisk_engine::{EngineOptions as DatabaseOptions, Error, Result, Snapshot};
+pub use obelisk_engine::{
+    EngineOptions as DatabaseOptions, Error, Result, Snapshot, SnapshotReference,
+};
 pub use obelisk_storage as storage;
 pub use obelisk_types::*;
 use std::sync::Arc;

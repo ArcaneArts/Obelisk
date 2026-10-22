@@ -33,6 +33,8 @@ on any paths. Conditions evaluate against one starting snapshot. Failed conditio
 are not committed. Revision tokens are unique commit identities; delete/recreate
 cannot reuse revisions. Batches are atomic, and each successful publication has a
 fresh commit UUID. Request IDs are caller-provided nonempty strings (up to 256 bytes).
+Snapshot references are opaque values obtained from committed snapshots; callers
+cannot turn an unpublished manifest into a public snapshot reference.
 Successful request IDs, canonical operation fingerprints, and original receipts
 are retained indefinitely for the prototype. Different payloads cannot reuse IDs.
 Retries after head conflicts recompute all state-dependent work. Latest reads fetch
@@ -42,8 +44,13 @@ the authoritative head; pinned snapshots remain readable because nothing is recl
 
 Storage uses engine-generated UUID object IDs, never logical paths. Adapters own
 process-safe atomicity and durability. Folder publication uses an OS file lock,
-file sync, atomic rename, and directory sync. Supported baseline durability target
-is a local POSIX filesystem; Windows support is conditional on verified equivalent
+file sync, atomic rename, and directory sync. Readers also sync the head directory
+under a shared publication lock before returning a visible head: a publisher may
+have died after rename and before
+sync. This allows uncertain request resolution to complete the missing barrier.
+Folder roots are canonicalized once at open so later working-directory changes do
+not redirect an existing adapter. The supported baseline durability target is a
+local POSIX filesystem; Windows support is conditional on verified equivalent
 publication and directory-flush behavior. Network filesystems are unverified.
 S3 uses immutable create and conditional head replacement; no unconditional fallback.
 Every head payload must contain a fresh commit identity to prevent ABA.
@@ -58,6 +65,8 @@ Default limits: 1 MiB encoded document, 1024 fields/document, 10000 list element
 256 mutations and 256 explicit read conditions/batch, 16 MiB encoded transaction,
 64 MiB metadata/object envelope, and 128 MiB total byte budget for a decoded object.
 Public constructors and persistent decoders enforce bounded recursion and allocation.
+Prepared metadata is validated against reader limits before publication so the
+engine cannot commit a manifest that its own bounded reader cannot reopen.
 These are initial safety bounds, not performance claims; expose configurable engine
 retry budgets first and expand validated resource configuration later.
 
@@ -65,7 +74,7 @@ retry budgets first and expand validated resource configuration later.
 
 Types report validation errors; storage distinguishes missing objects, precondition
 conflicts, invalid ranges, I/O/transport errors, and uncertain publication outcomes.
-Engine errors distinguish validation, corruption, unsupported formats, revision
+Engine errors distinguish validation, resource limits, corruption, unsupported formats, revision
 conflicts, missing documents, request-ID reuse, retry exhaustion, and uncertain
 publication. Uncertain outcomes carry the request identity for later resolution.
 

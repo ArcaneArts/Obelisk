@@ -43,7 +43,7 @@ pub struct RequestRecord {
 }
 fn envelope(kind: u8, payload: Vec<u8>) -> Result<Vec<u8>> {
     if payload.len() > MAX_PAYLOAD {
-        return Err(corrupt("format payload exceeds limit"));
+        return Err(Error::ResourceLimit("format payload size"));
     }
     let mut out = b"OBLS".to_vec();
     out.push(kind);
@@ -164,7 +164,7 @@ impl<'a> Reader<'a> {
         self.budget = self
             .budget
             .checked_sub(n)
-            .ok_or_else(|| corrupt("decode allocation budget"))?;
+            .ok_or(Error::ResourceLimit("decoded object allocation budget"))?;
         Ok(())
     }
     fn take(&mut self, n: usize) -> Result<&'a [u8]> {
@@ -216,7 +216,7 @@ impl<'a> Reader<'a> {
             .map_err(|_| corrupt("invalid UTF-8"))
     }
     fn path(&mut self) -> Result<Vec<String>> {
-        let n = self.count(128, 32)?;
+        let n = self.count(128, 64)?;
         let mut parts = Vec::with_capacity(n);
         for _ in 0..n {
             parts.push(self.text(MAX_PATH_BYTES)?);
@@ -236,7 +236,10 @@ impl<'a> Reader<'a> {
             2 => Ok(ValueType::Integer),
             3 => Ok(ValueType::Double),
             4 => Ok(ValueType::Boolean),
-            5 => Ok(ValueType::List(Box::new(self.value_type(depth + 1)?))),
+            5 => {
+                self.charge(std::mem::size_of::<ValueType>() + 16)?;
+                Ok(ValueType::List(Box::new(self.value_type(depth + 1)?)))
+            }
             _ => Err(corrupt("unknown value type")),
         }
     }
@@ -252,7 +255,7 @@ impl<'a> Reader<'a> {
             4 => Value::Boolean(self.boolean()?),
             5 => {
                 let t = self.value_type(depth + 1)?;
-                let n = self.count(MAX_LIST_ITEMS, 64)?;
+                let n = self.count(MAX_LIST_ITEMS, 128)?;
                 let mut values = Vec::with_capacity(n);
                 for _ in 0..n {
                     values.push(self.value(depth + 1)?);
@@ -263,7 +266,7 @@ impl<'a> Reader<'a> {
         })
     }
     fn document(&mut self) -> Result<Document> {
-        let n = self.count(MAX_FIELDS, 128)?;
+        let n = self.count(MAX_FIELDS, 256)?;
         let mut fields = Vec::with_capacity(n);
         for _ in 0..n {
             fields.push((FieldPath::from_segments(self.path()?)?, self.value(0)?));
@@ -288,6 +291,12 @@ pub fn encode_head(head: &HeadRef) -> Result<Vec<u8>> {
     envelope(HEAD, w.0)
 }
 pub fn decode_head(bytes: &[u8]) -> Result<HeadRef> {
+    decode_head_inner(bytes).map_err(|error| match error {
+        Error::Validation(error) => Error::Corrupt(error.to_string()),
+        other => other,
+    })
+}
+fn decode_head_inner(bytes: &[u8]) -> Result<HeadRef> {
     let mut r = Reader::new(payload(bytes, HEAD)?);
     let head = HeadRef {
         database_id: DatabaseId::new(r.text(256)?)?,
@@ -316,7 +325,7 @@ pub fn encode_manifest(m: &Manifest) -> Result<Vec<u8>> {
         w.u64(l.range.end);
         w.text(l.revision.as_str());
         if w.0.len() > MAX_PAYLOAD {
-            return Err(corrupt("metadata limit"));
+            return Err(Error::ResourceLimit("metadata size"));
         }
     }
     w.u32(m.requests.len());
@@ -325,12 +334,22 @@ pub fn encode_manifest(m: &Manifest) -> Result<Vec<u8>> {
         w.0.extend_from_slice(&record.fingerprint);
         write_receipt(&mut w, &record.receipt);
         if w.0.len() > MAX_PAYLOAD {
-            return Err(corrupt("request metadata limit"));
+            return Err(Error::ResourceLimit("request metadata size"));
         }
     }
-    envelope(MANIFEST, w.0)
+    let bytes = envelope(MANIFEST, w.0)?;
+    // Never publish metadata that the bounded reader would reject. This
+    // prototype pays an extra metadata validation pass before durable uploads.
+    decode_manifest(&bytes)?;
+    Ok(bytes)
 }
 pub fn decode_manifest(bytes: &[u8]) -> Result<Manifest> {
+    decode_manifest_inner(bytes).map_err(|error| match error {
+        Error::Validation(error) => Error::Corrupt(error.to_string()),
+        other => other,
+    })
+}
+fn decode_manifest_inner(bytes: &[u8]) -> Result<Manifest> {
     let mut r = Reader::new(payload(bytes, MANIFEST)?);
     let database_id = DatabaseId::new(r.text(256)?)?;
     let commit_id = CommitId::new(r.text(256)?)?;
@@ -493,6 +512,9 @@ pub fn transaction_fingerprint(transaction: &Transaction) -> Result<[u8; 32]> {
     for item in conditions {
         w.bytes(&item);
     }
+    if w.0.len() > MAX_TRANSACTION_BYTES {
+        return Err(Error::ResourceLimit("operation encoding size"));
+    }
     Ok(*blake3::hash(&w.0).as_bytes())
 }
 pub fn encode_record(path: &DocumentPath, document: Option<&Document>) -> Result<Vec<u8>> {
@@ -505,6 +527,15 @@ pub fn encode_record(path: &DocumentPath, document: Option<&Document>) -> Result
     envelope(RECORD, w.0)
 }
 pub fn decode_record(bytes: &[u8]) -> Result<(DocumentPath, Option<Document>)> {
+    if bytes.len() > MAX_DOCUMENT_BYTES + MAX_PATH_BYTES + 1024 {
+        return Err(corrupt("document record byte limit"));
+    }
+    decode_record_inner(bytes).map_err(|error| match error {
+        Error::Validation(error) => Error::Corrupt(error.to_string()),
+        other => other,
+    })
+}
+fn decode_record_inner(bytes: &[u8]) -> Result<(DocumentPath, Option<Document>)> {
     let mut r = Reader::new(payload(bytes, RECORD)?);
     let p = DocumentPath::from_segments(r.path()?)?;
     let d = if r.boolean()? {
@@ -599,6 +630,8 @@ mod tests {
         #[test]
         fn arbitrary_bytes_never_panic(bytes in prop::collection::vec(any::<u8>(),0..2048)) {
             let _=decode_record(&bytes);let _=decode_manifest(&bytes);let _=decode_head(&bytes);
+            let record=envelope(RECORD,bytes.clone()).unwrap(); let _=decode_record(&record);
+            let manifest=envelope(MANIFEST,bytes).unwrap();let _=decode_manifest(&manifest);
         }
         #[test]
         fn scalar_document_roundtrip(i in any::<i64>(), text in ".{0,100}", binary in prop::collection::vec(any::<u8>(),0..100)) {

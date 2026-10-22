@@ -1,7 +1,7 @@
 use crate::{MAX_PATH_BYTES, Result, invalid};
 use std::fmt;
 
-fn validate(segments: &[String]) -> Result<()> {
+fn validate(segments: &[String], delimiter: char) -> Result<()> {
     if segments.is_empty() || segments.len() > 128 {
         return Err(invalid("path must have 1..=128 segments"));
     }
@@ -10,10 +10,10 @@ fn validate(segments: &[String]) -> Result<()> {
         if segment.is_empty() || segment.chars().any(char::is_control) {
             return Err(invalid("empty path segment or control character"));
         }
-        // Account for worst-case escaping, so every valid path can round-trip.
+        // Bound the canonical escaped representation.
         bytes += segment
             .chars()
-            .map(|c| c.len_utf8() + usize::from(c == char::from(92) || c == '/' || c == '.'))
+            .map(|c| c.len_utf8() + usize::from(c == char::from(92) || c == delimiter))
             .sum::<usize>();
     }
     if bytes > MAX_PATH_BYTES {
@@ -41,7 +41,7 @@ fn parse(text: &str, delimiter: char) -> Result<Vec<String>> {
             parts.last_mut().unwrap().push(c);
         }
     }
-    validate(&parts)?;
+    validate(&parts, delimiter)?;
     Ok(parts)
 }
 fn display(parts: &[String], delimiter: char, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -71,8 +71,8 @@ macro_rules! path {
                 I: IntoIterator<Item = S>,
                 S: Into<String>,
             {
-                let parts: Vec<_> = segments.into_iter().map(Into::into).collect();
-                validate(&parts)?;
+                let parts: Vec<_> = segments.into_iter().take(129).map(Into::into).collect();
+                validate(&parts, $delimiter)?;
                 Ok(Self(parts))
             }
             pub fn segments(&self) -> &[String] {
@@ -113,6 +113,9 @@ mod tests {
         let path = FieldPath::from_segments(["literal.dot", "back\\slash"]).unwrap();
         assert_eq!(path, FieldPath::parse(&path.to_string()).unwrap());
         assert!(DocumentPath::from_segments(vec!["a"; 129]).is_err());
+        assert!(DocumentPath::from_segments(std::iter::repeat("a")).is_err());
+        assert!(DocumentPath::parse(&".".repeat(MAX_PATH_BYTES)).is_ok());
+        assert!(FieldPath::parse(&"/".repeat(MAX_PATH_BYTES)).is_ok());
         assert!(DocumentPath::parse(&"a".repeat(MAX_PATH_BYTES + 1)).is_err());
     }
     proptest! {
