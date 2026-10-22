@@ -16,6 +16,10 @@ Each completed cycle is committed separately. See git history for exact commits.
 - [x] 12. Paged snapshots, transactions and atomic hierarchy membership.
 - [x] 13. Bulk reads and bounded hierarchy APIs.
 - [x] 14. Pagination, multiprocess/crash and scaling qualification.
+- [x] 15. Validated scalar-index definitions and ordered metadata primitives.
+- [ ] 16. Root-integrated resumable index build, reconciliation and activation.
+- [ ] 17. Atomic transaction maintenance and bounded indexed query APIs.
+- [ ] 18. Index concurrency, interruption and scaling qualification.
 
 ## Evidence
 
@@ -128,8 +132,9 @@ retained-history growth still limit the prototype. Field indexes,
 compaction, reclamation, backup/restore and transport remain deferred as scoped.
 
 The four query-foundation implementation milestones are complete locally.
-Actual-S3 qualification remains parallel and externally configured. Scalar field
-indexes are the next implementation block; compaction/reclamation remain deferred.
+Actual-S3 qualification remains parallel and externally configured. Scalar-index
+primitives are complete; lifecycle integration, maintenance, queries and
+qualification remain. Compaction/reclamation remain deferred.
 
 ## Query foundations cycle 11 evidence
 
@@ -283,7 +288,31 @@ benchmark accounting changes no engine/storage publication behavior.
 | AWS qualification status | Pending dedicated external bucket/prefix; no actual AWS or emulator run, no remote cleanup or embedded credentials |
 
 No hardware power-loss, network-filesystem, Windows-folder durability, bounded
-history retention, or universal latency claim follows from these results. Field
-index definitions/ordered scalar encodings, transactional old-entry removal, and
-resumable build/reconciliation/activation through the internal publisher remain
-the immediate follow-on, outside this Task.
+history retention, or universal latency claim follows from these results.
+
+## Scalar indexes cycle 15 evidence
+
+Public types now validate stable index identities, exact children/descendants
+scopes, one to eight ordered string/integer/double/boolean components, and up to
+32 canonical covered fields. Definitions reject duplicate or impossible component
+paths and enforce an aggregate byte bound. Engine primitives encode checksummed
+definitions, distinct definition/entry page families, bounded composite prefixes
+and complete keys, and document-path tie-breakers. Missing fields, type mismatches
+and out-of-scope documents produce no entry. Oversized scalar tuples fail without
+allocating beyond the key bound or emitting a truncated key.
+
+Ordering tests cover both directions, embedded NUL strings, integer extremes,
+finite-double extremes and generated integer/double pairs. Composite round trips,
+structured path ordering, scope/type omission, family mismatches, future versions,
+noncanonical negative zero, hostile keys, arbitrary bytes and definition limits
+also pass. Existing v2 HEAD/root bytes and production reads/writes are unchanged;
+the new page families have no authoritative root reference and cannot yet become
+query-visible. Covered projection values are not encoded yet.
+
+Local validation on 2026-10-22: **69 workspace tests passed, three ignored**. The
+ignores are two actual-AWS tests and the explicit large capacity workload. Formatting,
+strict all-feature workspace Clippy, folder-only and S3-only facade Clippy, and the
+no-default-feature workspace check passed. No actual AWS S3, emulator, performance,
+multiprocess-index, process-kill-index or hardware-power-loss qualification ran.
+The next cycle must define root-persisted lifecycle state and resumable base-build,
+concurrent-change reconciliation and atomic activation before indexes can be used.

@@ -100,7 +100,13 @@ metadata loads lazily. `DatabaseOptions.resources` accepts validated limits for
 metadata page reads, metadata transfer, decoded allocation, and prepared metadata.
 Defaults are 4096 page reads and 64 MiB for each byte budget; lower nonzero limits
 are allowed. Hard page/root/receipt bounds remain independent of these options.
-Parent membership is maintained atomically with document mutations. Scalar field indexes remain separate subsequent work.
+Parent membership is maintained atomically with document mutations. Scalar field
+indexes are not yet integrated with the authoritative root.
+
+Validated scalar-index definition and ordered-key primitives are available for the
+next implementation block, but they are deliberately not attached to v2 roots yet.
+No index is created, maintained, or query-visible in this cycle; ordinary database
+behavior and compatibility are unchanged.
 
 ## Bulk reads and hierarchy discovery
 

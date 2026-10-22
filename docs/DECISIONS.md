@@ -170,3 +170,32 @@ rewritten; the corrected path creates only the changed leaf/root, retaining ever
 unrelated child reference. Descriptor item counts are checked against encoded page
 headers before entry-vector allocations, so corrupt counts cannot undercharge the
 operation's decode budget. Encodings remain unchanged by these safeguards.
+
+## Scalar index primitives
+
+An `IndexDefinition` has a stable caller-visible identity, an exact children or
+descendants scope, one to eight ordered components, and up to 32 optional covered
+field paths. Components name a field path, one exact scalar type and ascending or
+descending order. Covered paths are canonicalized; duplicate components, impossible
+ancestor/descendant component pairs, and duplicate key/covered paths are rejected.
+Definitions are bounded to 7 KiB before the engine envelope. Missing components,
+out-of-scope documents and exact type mismatches produce no entry. Integer and
+double remain distinct. Binary and list components are unsupported.
+
+Scalar keys encode components first and use the structured document path as the
+ascending deterministic tie-breaker. Boolean uses 0/1. Signed integers flip the
+sign bit and use big endian. Finite doubles use the standard sign-aware sortable
+bit transform after public negative-zero normalization. Strings use UTF-8 byte
+order with NUL escaping and a two-byte terminator. Descending components complement
+their encoded payload, including the string terminator. Type tags remain explicit.
+The encoded scalar tuple is limited to 4096 bytes so the maximum ordered document
+key still fits the existing 8704-byte metadata-key limit. Oversized keys fail; they
+are never truncated or hashed.
+
+Definition values use checksummed kind 7/version 1 envelopes. Metadata page family
+4 is reserved for definitions and family 5 for scalar entries. The existing B+
+tree supplies immutable point/range/edit behavior and family separation. This
+additive primitives cycle does not add either family to the production root, alter
+HEAD/root v2, create indexes, maintain entries, encode covered projections, or make
+an index query-visible. Those behaviors require the later lifecycle and transaction
+cycles, so existing databases and writes are unchanged.

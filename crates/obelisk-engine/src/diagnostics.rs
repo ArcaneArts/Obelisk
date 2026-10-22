@@ -16,6 +16,8 @@ pub enum ObjectKind {
     Documents,
     Requests,
     Membership,
+    IndexDefinitions,
+    ScalarIndexes,
     Outcome,
     Record,
     Segment,
@@ -42,7 +44,7 @@ struct Counters {
 #[derive(Debug)]
 pub struct InstrumentedMetadata {
     inner: Arc<dyn Storage>,
-    counts: [Counters; 8],
+    counts: [Counters; 10],
 }
 fn kind(bytes: &[u8]) -> ObjectKind {
     if bytes.len() < 43 || &bytes[..4] != b"OBLS" {
@@ -57,6 +59,8 @@ fn kind(bytes: &[u8]) -> ObjectKind {
             Some(1) => ObjectKind::Documents,
             Some(2) => ObjectKind::Requests,
             Some(3) => ObjectKind::Membership,
+            Some(4) => ObjectKind::IndexDefinitions,
+            Some(5) => ObjectKind::ScalarIndexes,
             _ => ObjectKind::Unknown,
         },
         _ => ObjectKind::Unknown,
@@ -91,7 +95,11 @@ impl Storage for InstrumentedMetadata {
             .fetch_add(bytes.len() as u64, Ordering::Relaxed);
         let charge = match kind {
             ObjectKind::Root => bytes.len() as u64 * 2 + 512,
-            ObjectKind::Documents | ObjectKind::Requests | ObjectKind::Membership => bytes
+            ObjectKind::Documents
+            | ObjectKind::Requests
+            | ObjectKind::Membership
+            | ObjectKind::IndexDefinitions
+            | ObjectKind::ScalarIndexes => bytes
                 .get(45..49)
                 .map(|s| {
                     bytes.len() as u64 * 2

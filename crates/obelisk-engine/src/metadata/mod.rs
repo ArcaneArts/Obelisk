@@ -2,11 +2,17 @@
 //! never publish HEAD or reclaim historical objects.
 mod codec;
 pub(crate) use codec::decode_outcome_budget;
+mod index;
 mod key;
 mod tree;
 pub use codec::{
     HeadRef, ObjectRef, OutcomeRef, PageRef, Root, decode_head, decode_location, decode_outcome,
     decode_root, encode_head, encode_location, encode_outcome, encode_root,
+};
+pub use index::{
+    INDEX_DEFINITION_KIND, MAX_INDEX_SCALAR_BYTES, decode_index_definition, decode_index_entry_key,
+    encode_index_definition, index_definition_id, index_definition_key, index_entry_for_document,
+    index_entry_key, index_prefix_end, index_value_prefix,
 };
 pub use key::{
     document_key, document_path, membership_key, membership_path, parent_prefix, prefix_end,
@@ -32,6 +38,8 @@ pub enum Family {
     Documents = 1,
     Requests = 2,
     Membership = 3,
+    IndexDefinitions = 4,
+    ScalarIndexes = 5,
 }
 
 /// Per-operation work limits, including pages revisited without a cache.
@@ -67,5 +75,7 @@ pub(crate) fn charge(remaining: &mut usize, bytes: usize, what: &'static str) ->
     Ok(())
 }
 
+#[cfg(test)]
+mod index_tests;
 #[cfg(test)]
 mod tests;

@@ -522,3 +522,18 @@ Deliver four independently merged cycles: metadata primitives; paged engine
 integration; bulk/hierarchy APIs; pagination/concurrency/crash and scaling
 qualification. Nothing in this block enables reclamation, compaction, portable
 cursor decoding, or a wire protocol.
+
+## Scalar index delivery block
+
+The scalar-index block adds explicit, typed index definitions and order-preserving
+composite keys before integrating any index with the authoritative root. It then
+adds a resumable online lifecycle, atomic transaction maintenance and bounded
+indexed queries, followed by independent-process, interruption and scaling
+qualification. A query may use only an active index published in its snapshot.
+
+Deliver four independently merged cycles: definition/key/page primitives;
+root-integrated build, reconciliation and activation; transactional maintenance
+and indexed query APIs; concurrency/crash and scaling qualification. The block
+starts with exact string, integer, double and boolean components. Binary and list
+indexes, deliberate scans, compaction, reclamation, portable cursor tokens and a
+wire protocol remain outside it.

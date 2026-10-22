@@ -87,3 +87,25 @@ must agree with HEAD. The root's capability mask requires membership maintenance
 Only this small root is loaded on snapshot opening; all trees are lazy. Internal
 metadata-only publications use the same CAS/durability path without changing
 original document revisions or application receipts.
+
+## Additive scalar-index primitives
+
+Index-definition kind 7/version 1 encodes an index identity, children/descendants
+scope and root/path scope value, one to eight ordered scalar component descriptors,
+and zero to 32 canonical covered field paths. Paths retain explicit segment counts
+and length-prefixed UTF-8 segments. Encoded definitions fit the 8192-byte metadata
+leaf-value limit. Page family 4 identifies definition trees and family 5 identifies
+scalar-entry trees. Neither family is referenced by the production v2 root yet.
+
+A scalar-entry key concatenates every component encoding and then the existing
+ordered document-path key as an ascending tie-breaker. Each component starts with
+an exact type tag: 1 boolean, 2 integer, 3 double, 4 string. Booleans append 0/1.
+Integers flip the i64 sign bit and append big-endian bytes. Doubles map normalized
+finite IEEE bits by complementing negative encodings or flipping the sign bit for
+nonnegative encodings, then append big-endian bytes. Strings append UTF-8 bytes,
+escape NUL as `00 ff`, and terminate with `00 00`. A descending component bitwise
+complements its payload but not its type tag. Decoders know component boundaries
+from the definition and reject bad tags, escapes, UTF-8, booleans, bounds and paths.
+Scalar tuples are at most 4096 bytes; complete keys retain the existing 8704-byte
+limit. Prefix encodings and their exclusive byte successor support exact composite
+prefix ranges without weakening document-path tie-breaking.
