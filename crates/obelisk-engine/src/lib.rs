@@ -1,5 +1,6 @@
 //! Snapshot and transaction engine. Persistent formats belong to this crate.
 pub mod format;
+pub mod metadata;
 mod snapshot;
 mod transaction;
 use obelisk_types::{DocumentPath, RequestId};

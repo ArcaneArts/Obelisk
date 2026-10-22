@@ -41,24 +41,30 @@ pub struct RequestRecord {
     pub fingerprint: [u8; 32],
     pub receipt: CommitReceipt,
 }
-fn envelope(kind: u8, payload: Vec<u8>) -> Result<Vec<u8>> {
+pub(crate) fn envelope(kind: u8, payload: Vec<u8>) -> Result<Vec<u8>> {
+    envelope_version(kind, 1, payload)
+}
+pub(crate) fn envelope_version(kind: u8, version: u16, payload: Vec<u8>) -> Result<Vec<u8>> {
     if payload.len() > MAX_PAYLOAD {
         return Err(Error::ResourceLimit("format payload size"));
     }
     let mut out = b"OBLS".to_vec();
     out.push(kind);
-    out.extend_from_slice(&1_u16.to_le_bytes());
+    out.extend_from_slice(&version.to_le_bytes());
     out.extend_from_slice(&(payload.len() as u32).to_le_bytes());
     out.extend_from_slice(blake3::hash(&payload).as_bytes());
     out.extend(payload);
     Ok(out)
 }
-fn payload(bytes: &[u8], kind: u8) -> Result<&[u8]> {
+pub(crate) fn payload(bytes: &[u8], kind: u8) -> Result<&[u8]> {
+    payload_version(bytes, kind, 1)
+}
+pub(crate) fn payload_version(bytes: &[u8], kind: u8, expected: u16) -> Result<&[u8]> {
     if bytes.len() < HEADER_BYTES || &bytes[..4] != b"OBLS" || bytes[4] != kind {
         return Err(corrupt("invalid envelope"));
     }
     let version = u16::from_le_bytes(bytes[5..7].try_into().unwrap());
-    if version != 1 {
+    if version != expected {
         return Err(Error::UnsupportedVersion(version));
     }
     let len = u32::from_le_bytes(bytes[7..11].try_into().unwrap()) as usize;
@@ -149,12 +155,12 @@ impl Writer {
         }
     }
 }
-struct Reader<'a> {
+pub(crate) struct Reader<'a> {
     input: &'a [u8],
     budget: usize,
 }
 impl<'a> Reader<'a> {
-    fn new(input: &'a [u8]) -> Self {
+    pub(crate) fn new(input: &'a [u8]) -> Self {
         Self {
             input,
             budget: MAX_DECODE_BUDGET,
@@ -167,7 +173,7 @@ impl<'a> Reader<'a> {
             .ok_or(Error::ResourceLimit("decoded object allocation budget"))?;
         Ok(())
     }
-    fn take(&mut self, n: usize) -> Result<&'a [u8]> {
+    pub(crate) fn take(&mut self, n: usize) -> Result<&'a [u8]> {
         if n > self.input.len() {
             return Err(corrupt("truncated payload"));
         }
@@ -175,23 +181,23 @@ impl<'a> Reader<'a> {
         self.input = rest;
         Ok(v)
     }
-    fn byte(&mut self) -> Result<u8> {
+    pub(crate) fn byte(&mut self) -> Result<u8> {
         Ok(self.take(1)?[0])
     }
-    fn boolean(&mut self) -> Result<bool> {
+    pub(crate) fn boolean(&mut self) -> Result<bool> {
         match self.byte()? {
             0 => Ok(false),
             1 => Ok(true),
             _ => Err(corrupt("invalid boolean")),
         }
     }
-    fn u32(&mut self) -> Result<usize> {
+    pub(crate) fn u32(&mut self) -> Result<usize> {
         Ok(u32::from_le_bytes(self.take(4)?.try_into().unwrap()) as usize)
     }
-    fn u64(&mut self) -> Result<u64> {
+    pub(crate) fn u64(&mut self) -> Result<u64> {
         Ok(u64::from_le_bytes(self.take(8)?.try_into().unwrap()))
     }
-    fn count(&mut self, max: usize, cost: usize) -> Result<usize> {
+    pub(crate) fn count(&mut self, max: usize, cost: usize) -> Result<usize> {
         let n = self.u32()?;
         if n > max || n > self.input.len() {
             return Err(corrupt("invalid item count"));
@@ -202,7 +208,7 @@ impl<'a> Reader<'a> {
         )?;
         Ok(n)
     }
-    fn bytes(&mut self, max: usize) -> Result<&'a [u8]> {
+    pub(crate) fn bytes(&mut self, max: usize) -> Result<&'a [u8]> {
         let n = self.u32()?;
         if n > max {
             return Err(corrupt("byte limit"));
@@ -210,7 +216,7 @@ impl<'a> Reader<'a> {
         self.charge(n)?;
         self.take(n)
     }
-    fn text(&mut self, max: usize) -> Result<String> {
+    pub(crate) fn text(&mut self, max: usize) -> Result<String> {
         std::str::from_utf8(self.bytes(max)?)
             .map(str::to_owned)
             .map_err(|_| corrupt("invalid UTF-8"))
@@ -223,7 +229,7 @@ impl<'a> Reader<'a> {
         }
         Ok(parts)
     }
-    fn object(&mut self) -> Result<ObjectId> {
+    pub(crate) fn object(&mut self) -> Result<ObjectId> {
         ObjectId::parse(&self.text(36)?).map_err(|_| corrupt("invalid object identity"))
     }
     fn value_type(&mut self, depth: usize) -> Result<ValueType> {
@@ -273,7 +279,7 @@ impl<'a> Reader<'a> {
         }
         Ok(Document::new(fields)?)
     }
-    fn finish(self) -> Result<()> {
+    pub(crate) fn finish(self) -> Result<()> {
         if self.input.is_empty() {
             Ok(())
         } else {
@@ -415,7 +421,7 @@ fn decode_manifest_inner(bytes: &[u8]) -> Result<Manifest> {
         requests,
     })
 }
-fn write_receipt(w: &mut Writer, receipt: &CommitReceipt) {
+pub(crate) fn write_receipt(w: &mut Writer, receipt: &CommitReceipt) {
     w.text(receipt.database_id.as_str());
     w.text(receipt.request_id.as_str());
     w.text(receipt.commit_id.as_str());
@@ -429,7 +435,7 @@ fn write_receipt(w: &mut Writer, receipt: &CommitReceipt) {
         }
     }
 }
-fn read_receipt(r: &mut Reader<'_>) -> Result<CommitReceipt> {
+pub(crate) fn read_receipt(r: &mut Reader<'_>) -> Result<CommitReceipt> {
     let database_id = DatabaseId::new(r.text(256)?)?;
     let request_id = RequestId::new(r.text(256)?)?;
     let commit_id = CommitId::new(r.text(256)?)?;

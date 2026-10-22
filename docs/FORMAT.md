@@ -39,3 +39,34 @@ at 64 MiB. Decoders enforce allocation, item-count, byte and nesting limits.
 UUID object identifiers are physical keys, independent of logical paths. Revisions
 and commit identities never depend on wall clocks. Folder HEAD additionally wraps
 the engine head with a UUID storage-version token; S3 uses its opaque ETag.
+
+## Additive paged metadata formats (not yet used by the v1 writer)
+
+The primitives in `obelisk-engine::metadata` define root manifest kind 2/version 2,
+page kind 5/version 1, and request-outcome kind 6/version 1. Envelopes keep the
+43-byte checksummed header. The current engine still reads/writes v1 databases;
+this cycle alone changes no database format on disk.
+
+A root repeats database/commit identity and sequence, requires capability mask 1
+(parent membership maintained), then stores three optional page references in
+family order: documents, requests, membership. It is bounded to 16 KiB.
+
+An object reference contains a canonical UUID string, u32 encoded length, and
+BLAKE3 hash of the complete encoded object. A page reference adds u8 level and
+u32 item count. A page payload contains u8 family (1 documents, 2 requests,
+3 membership), u8 level, u32 count, then strictly sorted length-prefixed byte
+key/value pairs. Level zero values are record-family data; higher-level values
+encode page references and keys give each child's exact minimum. Child levels
+must be one lower. A child's maximum must precede the next separator. Page reads
+use the referenced exact length and independently verify its hash and envelope.
+
+Path keys contain segment UTF-8 bytes followed by NUL for every segment. Segment
+NUL is prohibited by public validation. Membership keys concatenate the parent
+path key, an additional NUL, and the final segment with its NUL terminator. A root
+parent has only the additional NUL. Prefix successors give exclusive range ends.
+These key encodings differ from the v1 length-prefixed round-trip path encoding.
+
+An outcome object contains the canonical fingerprint followed by the original v1
+receipt encoding. It is bounded to 2 MiB rather than to the 64 KiB page size. The
+engine integration cycle will define the document-location and outcome-reference
+leaf value encodings and switch HEAD explicitly, without automatic migration.

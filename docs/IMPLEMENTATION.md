@@ -12,6 +12,10 @@ Each completed cycle is committed separately. See git history for exact commits.
 - [x] 8. Public facade, examples, and usage documentation.
 - [x] 9. Multiprocess/crash harness, local validation and measurements.
 - [x] 10. Recover interrupted folder publication before acknowledging observed heads.
+- [x] 11. Immutable ordered metadata pages, root and receipt primitives.
+- [ ] 12. Paged snapshots, transactions and atomic hierarchy membership.
+- [ ] 13. Bulk reads and bounded hierarchy APIs.
+- [ ] 14. Pagination, multiprocess/crash and scaling qualification.
 
 ## Evidence
 
@@ -126,3 +130,23 @@ compaction, reclamation, backup/restore and transport remain deferred as scoped.
 Next milestone: complete actual-S3 qualification, then build hierarchy/field indexes
 with transactional maintenance and plan shared metadata pages and compaction using
 the measured contention and metadata-growth evidence.
+
+## Query foundations cycle 11 evidence
+
+The additive metadata primitives provide ordered document/membership codecs,
+checksummed family-specific B+ pages, fixed-size root references, separate large
+receipt objects, bounded point/range reads, and coalesced copy-on-write batch
+updates with sibling rebalancing and root collapse. Only reachable prepared pages
+are uploaded. Existing pages and historical roots remain immutable and unreclaimed.
+The production snapshot/transaction engine still uses v1; paged integration and
+public query APIs are cycles 12–14, not completed by this primitives cycle.
+
+Local validation on 2026-10-22: 42 workspace tests passed and two actual-AWS-S3
+tests were explicitly ignored. Formatting, strict workspace all-feature Clippy,
+facade folder-only and S3-only Clippy, and the no-default-feature workspace check
+passed. Nine added tests include generated reference-map operations, immutable
+old roots, ordered-key properties, arbitrary/checksummed malformed inputs, resource
+failures before reads, large receipts, maximum paths across multiple tree levels,
+shuffled deletion/fanout checks, bounded range continuation, and subtree reuse.
+These tree tests use an in-memory byte adapter and do not qualify actual S3.
+No performance or hardware-power-loss claim is made. Actual S3 remains pending.

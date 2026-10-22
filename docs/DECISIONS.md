@@ -82,3 +82,33 @@ Use Tokio for async hosts, fs2 for OS locks, UUID v4 for object/commit identitie
 BLAKE3 for integrity/fingerprints, and thiserror for typed errors. Evaluate
 object_store's S3 conditional create/update implementation before adopting it.
 Public types do not derive a persistent serialization format.
+
+## Query foundation metadata primitives
+
+Use separate immutable copy-on-write B+ trees for document locations, request
+outcomes, and parent membership. The fixed-size root has three optional tree
+references, identities, sequence, and a required membership capability. Empty trees
+have no page. Document segments and transaction fingerprints retain their v1
+encodings. This primitives cycle does not switch the production writer or migrate
+existing databases; paged integration will introduce an explicit HEAD version break.
+
+Pages target 16 KiB, have a 64 KiB encoded hard limit, and support at most 4096
+entries and 32 levels (leaf level zero). Keys are at most 8704 bytes; leaf values
+are at most 8192 bytes. Roots are at most 16 KiB. Original request receipts are
+separate immutable objects bounded to 2 MiB, accommodating valid 256-mutation
+receipts that exceed a page. Tree references include encoded length, hash, level,
+and entry count. Readers validate family, checksums, ordering, separators and
+strictly decreasing levels. Traversal uses root-based stacks, without leaf links.
+
+Operation budgets start at 4096 metadata page reads, 64 MiB transferred metadata,
+64 MiB cumulative decoded-allocation charges, and 64 MiB prepared page bytes.
+Budgets are charged before reads/allocations; exhaustion never publishes HEAD.
+These are work/safety bounds, not a global metadata-size limit. Batch editing
+coalesces shared tree paths and uploads only newly reachable pages; deletion
+rebalances siblings and collapses unary roots. No objects are reclaimed.
+
+Ordered path keys concatenate UTF-8 segments with NUL terminators. Validated segments
+cannot contain NUL. Membership keys insert an additional NUL before the final
+segment, delimiting the parent scope (including virtual root). This preserves
+structured path and `(parent, final segment)` order without interpreting escaped
+textual delimiters as boundaries. Scalar index encodings are separate future work.
