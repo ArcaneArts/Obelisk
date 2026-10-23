@@ -282,13 +282,41 @@ benchmark accounting changes no engine/storage publication behavior.
 | Bulk/root/hierarchy semantics | Type and facade reference tests for ordered duplicate/missing inputs, virtual root, missing ancestors, escaped boundaries, parent deletion, persisted membership |
 | Snapshot pagination and mismatch errors | Query tests across insert/update/delete and reopen; typed query/database/snapshot/version/position mismatch checks; 16 MiB pages resume without skipping; independent-process pinned continuation |
 | Atomic publication and preserved write guarantees | Expanded process-kill and hierarchy suites; original receipt/fingerprint/revision tests; lazy resolution-read faults; final lookup after conflicts; durable observed-HEAD tests |
-| Metadata-only publication and compatibility | Logically equivalent rewrite preserves revisions/receipts; stale roots fail CAS; v1 opening rejects before writes; opaque references and retained history |
+| Metadata-only publication and compatibility | Replacement pages in all three trees preserve revisions/receipts; stale roots fail CAS and retries rebuild from fresh state; lost publication responses remain explicit; v1 opening rejects before writes; opaque references and retained history |
 | Resource and former-capacity bounds | Low decoded/page/response budgets fail explicitly; checksums/counts fail before entry allocation; live location metadata exceeds 64 MiB; all required local checks pass |
 | Developer experience and rollout | Thin facade and runnable query example; async revision and v2 fresh-folder/prefix break documented; no migration, transport, reclamation, or scalar indexes introduced |
 | AWS qualification status | Pending dedicated external bucket/prefix; no actual AWS or emulator run, no remote cleanup or embedded credentials |
 
 No hardware power-loss, network-filesystem, Windows-folder durability, bounded
 history retention, or universal latency claim follows from these results.
+
+### Query-foundations metadata rewrite qualification
+
+The metadata-only acceptance test replaces document-location, parent-membership,
+and request-outcome pages through the common internal publisher. Its 256-document
+fixture spans multiple pages. Complete paginated children and descendant results,
+document revisions, original application receipts, and retained snapshots survive
+the rewrite and reopening. A concurrent document commit rejects the stale rewrite
+by CAS; rebuilding from authoritative state preserves that commit's document,
+membership and outcome on retry. The whole-fixture rebuild is test-only; ordinary
+transactions still edit relevant tree paths.
+
+A separate storage fault loses the response after successful metadata-only HEAD
+publication. The test requires an explicit uncertain storage error and confirms
+that the intended CAS was reached. Reopening observes the new commit identity,
+unchanged query results and original receipts. Instrumentation proves this rewrite
+creates all three metadata families and a root, without creating document segments,
+document records or receipt objects. These are local POSIX tests, not actual AWS
+or hardware power-loss qualification.
+
+Validation on 2026-10-22: both focused metadata-only tests passed; the full workspace
+run passed **70 tests with three ignored**. Formatting, strict all-feature workspace
+Clippy, folder-only and S3-only facade Clippy, and no-default-feature workspace
+checking passed. The ignored tests are the two external AWS gates and the large
+release-only capacity workload; prior capacity/scaling evidence above is unchanged.
+PR #5's Linux, macOS and Windows CI checks were also observed passing during this
+audit. Actual AWS qualification remains pending a dedicated external bucket/prefix
+and credential provider.
 
 ## Scalar indexes cycle 15 evidence
 
