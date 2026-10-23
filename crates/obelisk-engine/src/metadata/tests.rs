@@ -633,3 +633,128 @@ async fn a_local_edit_preserves_a_distant_sparse_tail() {
     .await;
     assert!(unchanged.objects.is_empty());
 }
+
+#[tokio::test]
+async fn cyclic_references_fail_with_bounded_point_range_and_edit_work() {
+    let store = Memory::default();
+    let object = ObjectId::random();
+    // A child points back to its own branch object, claiming a lower level.
+    // Its hash cannot authenticate the self-referential bytes. The outer
+    // reference and envelope are valid so traversal must reach the bad edge.
+    let mut child = PageRef {
+        blob: ObjectRef {
+            object,
+            len: 100,
+            hash: [0; 32],
+        },
+        level: 0,
+        count: 1,
+    };
+    let encode = |child: &PageRef| {
+        Node {
+            level: 1,
+            entries: vec![(b"a".to_vec(), child.bytes())],
+        }
+        .encode(Family::Documents)
+        .unwrap()
+    };
+    child.blob.len = encode(&child).len() as u32;
+    let bytes = encode(&child);
+    assert_eq!(bytes.len(), child.blob.len as usize);
+    let root = PageRef {
+        blob: ObjectRef::new(object, &bytes),
+        level: 1,
+        count: 1,
+    };
+    store.create(object, bytes.into()).await.unwrap();
+    for operation in 0..3 {
+        let before = store.reads.load(Ordering::Relaxed);
+        let mut budget = Budget::default();
+        let result = match operation {
+            0 => get(&store, Family::Documents, Some(&root), b"a", &mut budget)
+                .await
+                .map(|_| ()),
+            1 => range(
+                &store,
+                Family::Documents,
+                Some(&root),
+                KeyRange {
+                    start: Bound::Unbounded,
+                    end: None,
+                },
+                1,
+                &mut budget,
+            )
+            .await
+            .map(|_| ()),
+            _ => prepare(
+                &store,
+                Family::Documents,
+                Some(&root),
+                &BTreeMap::from([(b"a".to_vec(), Some(vec![1]))]),
+                &mut budget,
+            )
+            .await
+            .map(|_| ()),
+        };
+        assert!(matches!(result, Err(Error::Corrupt(_))), "{result:?}");
+        // The editor rejects the inconsistent cached descriptor; uncached
+        // readers reject the child hash after reading the branch a second time.
+        let expected_reads = if operation == 2 { 1 } else { 2 };
+        assert_eq!(store.reads.load(Ordering::Relaxed) - before, expected_reads);
+        assert_eq!(store.objects.lock().unwrap().len(), 1);
+    }
+}
+
+#[tokio::test]
+async fn non_descending_child_levels_and_transfer_limits_fail_before_following_edges() {
+    let store = Memory::default();
+    let child = PageRef {
+        blob: ObjectRef {
+            object: ObjectId::random(),
+            len: 100,
+            hash: [0; 32],
+        },
+        level: 1,
+        count: 1,
+    };
+    // Bypass the writer's validation to present a checksummed hostile branch
+    // with a same-level child to the production reader.
+    let mut writer = format::Writer::default();
+    writer.byte(Family::Documents as u8);
+    writer.byte(1);
+    writer.u32(1);
+    writer.bytes(b"a");
+    writer.bytes(&child.bytes());
+    let bytes = format::envelope(PAGE_KIND, writer.0).unwrap();
+    let object = ObjectId::random();
+    let root = PageRef {
+        blob: ObjectRef::new(object, &bytes),
+        level: 1,
+        count: 1,
+    };
+    store.create(object, bytes.into()).await.unwrap();
+    let before = store.reads.load(Ordering::Relaxed);
+    let result = get(
+        &store,
+        Family::Documents,
+        Some(&root),
+        b"a",
+        &mut Budget::default(),
+    )
+    .await;
+    assert!(matches!(result, Err(Error::Corrupt(_))), "{result:?}");
+    assert_eq!(store.reads.load(Ordering::Relaxed) - before, 1);
+
+    let before = store.reads.load(Ordering::Relaxed);
+    let mut budget = Budget {
+        transferred: root.blob.len as usize - 1,
+        ..Budget::default()
+    };
+    let result = get(&store, Family::Documents, Some(&root), b"a", &mut budget).await;
+    assert!(matches!(
+        result,
+        Err(Error::ResourceLimit("metadata transfer bytes"))
+    ));
+    assert_eq!(store.reads.load(Ordering::Relaxed), before);
+}
