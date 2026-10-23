@@ -313,3 +313,15 @@ These tests exercise local POSIX storage; they add no performance measurements.
 
 Actual AWS S3 remains pending: no dedicated bucket or test prefix is configured.
 Neither emulator nor memory-adapter results count as actual-service qualification.
+
+## MinIO HTTP transport smoke (2026-10-23)
+
+The [emulator evidence log](measurements/minio-2026-10-23.txt) records S3-only
+release probes through a dedicated local MinIO development container: 100/1,000
+live documents and 100 retained requests. All opens transferred 795 logical bytes
+without tree/payload/receipt reads. The companion storage contract and full
+multiprocess hierarchy/crash suite passed. Image identity, prefixes, counters,
+distributions and environment are recorded in the log; commands are in S3.md.
+This small workload is not an actual AWS qualification or comparable latency
+baseline (compilation/testing ran concurrently), and the development image has no
+upstream release identity. Logical counters do not measure physical HTTP requests.

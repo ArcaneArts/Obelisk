@@ -822,3 +822,17 @@ fn real_s3_multiprocess_and_crash_recovery() {
     let signals = tempfile::tempdir().unwrap();
     runtime().block_on(suite(Backend::S3 { bucket, prefix }, signals.path()));
 }
+
+#[cfg(feature = "s3")]
+#[test]
+#[ignore = "requires a dedicated S3 emulator endpoint, bucket, prefix and credentials"]
+fn emulator_s3_multiprocess_and_crash_recovery() {
+    let endpoint = std::env::var("AWS_ENDPOINT").expect("set explicit emulator AWS_ENDPOINT");
+    assert!(!endpoint.is_empty(), "set explicit emulator AWS_ENDPOINT");
+    let bucket = std::env::var("OBELISK_S3_BUCKET").expect("set isolated emulator bucket");
+    let base = std::env::var("OBELISK_S3_TEST_PREFIX").expect("set isolated emulator prefix");
+    let prefix = format!("{base}/emulator-process-{}", uuid::Uuid::new_v4());
+    eprintln!("emulator S3 multiprocess prefix retained: {prefix} (not AWS)");
+    let signals = tempfile::tempdir().unwrap();
+    runtime().block_on(suite(Backend::S3 { bucket, prefix }, signals.path()));
+}

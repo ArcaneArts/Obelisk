@@ -116,8 +116,8 @@ power-loss or actual-S3 claim is made.
 The local baseline is implemented and verified on macOS. Overall acceptance is
 **incomplete** until the actual-S3 storage contract and multiprocess recovery suite
 run successfully with a configured isolated bucket prefix and external credentials.
-No test bucket/prefix was supplied in this session; neither real S3 nor an emulator
-was exercised. The S3 source and adapter logic were inspected/tested locally.
+No external AWS test bucket/prefix was supplied. MinIO HTTP emulator evidence is
+recorded below; it does not close the real-service gate.
 
 Linux, macOS and Windows CI passed on query-foundation PRs #2, #3 and #4. The
 cycle-14 PR carries its own CI results. Folder durability is limited to local POSIX filesystems; Windows folder
@@ -344,3 +344,41 @@ no-default-feature workspace check passed. No actual AWS S3, emulator, performan
 multiprocess-index, process-kill-index or hardware-power-loss qualification ran.
 The next cycle must define root-persisted lifecycle state and resumable base-build,
 concurrent-change reconciliation and atomic activation before indexes can be used.
+
+## MinIO emulator qualification cycle
+
+Separate explicitly ignored emulator entry points reuse the byte-storage contract
+and complete multiprocess/query/crash harness without weakening the actual-AWS
+endpoint guards. Production storage and engine behavior are unchanged. A dedicated
+local bucket and random externally supplied credentials were used; no credentials
+are committed. UUID database prefixes and objects are retained without cleanup.
+
+On 2026-10-23 both S3-only emulator tests passed through HTTP against the local
+MinIO development image identified in
+[the evidence log](measurements/minio-2026-10-23.txt). Six independent writers
+published 24 atomic pairs, six duplicate requests committed once, and four
+contending writers preserved 16 increments. Four hierarchy writers published
+36 outcomes during 13 pinned scans. All 24 intended crash markers were reached,
+including split-producing batches; documents, memberships and original outcomes
+remained atomically visible after reopening. This kills client processes, not the
+MinIO server, and does not validate hardware power loss.
+
+The S3-only release scaling smoke passed at 100 and 1,000 live documents and
+100 retained requests on one document. Opening transferred 795 logical bytes at
+every checkpoint, with no tree, payload or receipt reads. At 1,000 documents a
+single replacement created six objects and uploaded 20,121 bytes. Full commands,
+prefixes, counters and distributions are retained in the evidence log and S3.md.
+This is a small emulator workload, not a substitute for the existing large folder
+measurements or full AWS scaling qualification. The server reports
+DEVELOPMENT.GOGET without an upstream release identity; evidence applies only to
+the recorded image ID. Timings overlapped local compilation/tests and are not a
+comparable performance baseline. No service-side HTTP metrics were captured.
+
+Local cycle validation: formatting and diff checks passed; workspace all-feature
+tests passed **70 tests with five ignored** (two AWS gates, two emulator gates,
+and the explicit large capacity workload). The emulator gates were run separately
+and passed. Strict workspace all-feature Clippy, facade folder-only and S3-only
+Clippy, and no-default-feature workspace checking all passed. The dedicated MinIO
+container is stopped with its database objects retained. Actual AWS contract,
+expanded multiprocess recovery and scaling remain pending external credentials
+and a dedicated bucket/prefix; overall S3 acceptance remains open.
