@@ -1,0 +1,106 @@
+MinIO emulator qualification on 2026-10-23; NOT actual AWS S3.
+Base revision: 293e085 plus the emulator-only test entry points in this cycle.
+macOS 27.0.1 arm64; Docker 27.4.0, linux/amd64 container via emulation.
+Image: caremap-minio:dev
+Image ID: sha256:782f63db3ddc9fb4959f9b77cc46bfd4d725a60834242f70fcd60b4ce7a834c3
+MinIO version DEVELOPMENT.GOGET; go1.24.6 linux/amd64.
+Local source-fingerprint label: 33cc88ef74d5bbf532b487085855a7d380b42dba55be3fbdfc47ce34d423a7a0
+This development image has no upstream release/commit identity; results apply to this image only.
+Rust/cargo 1.93.0. Loopback endpoint http://127.0.0.1:19280, us-east-1.
+Dedicated bucket obelisk-qualification; base prefix qualification-20261023.
+Ephemeral random credentials supplied externally, omitted here.
+Container obelisk-minio-qualification and its database objects retained.
+Commands: see docs/S3.md explicit emulator qualification.
+Scaling: OBELISK_SCALING_MAX=1000, OBELISK_SCALING_REQUESTS=100.
+Logical adapter counters only; no physical HTTP/service metrics captured.
+Latency affected by concurrent workspace compilation/testing; not a comparable performance baseline.
+
+Storage contract
+
+running 1 test
+emulator S3 contract prefix: qualification-20261023/emulator-storage-d0164104-db71-4721-95f2-d221c9204a3e (head retained; not AWS)
+test emulator_s3_contract ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.34s
+
+
+Multiprocess hierarchy/crash suite
+
+running 1 test
+emulator S3 multiprocess prefix retained: qualification-20261023/emulator-process-b21fe339-e667-4319-acdb-9444a5b4342f (not AWS)
+multiprocess: 6 writers, 24 acknowledged atomic pairs, 6 pinned consistency scans
+multiprocess: 6 identical requests committed once
+multiprocess: 4 contending writers preserved 16 conditional increments
+multiprocess hierarchy: 4 writers, 36 committed outcomes, 13 pinned scans; parent deletion and pinned page resumption preserved
+process kill: after-head-read; preserved seed, atomic visibility, retry receipt
+process kill: after-snapshot-read; preserved seed, atomic visibility, retry receipt
+process kill: before-segment; preserved seed, atomic visibility, retry receipt
+process kill: after-segment; preserved seed, atomic visibility, retry receipt
+process kill: before-manifest; preserved seed, atomic visibility, retry receipt
+process kill: after-manifest; preserved seed, atomic visibility, retry receipt
+process kill: before-page; preserved seed, atomic visibility, retry receipt
+process kill: after-page; preserved seed, atomic visibility, retry receipt
+process kill: before-document-page; preserved seed, atomic visibility, retry receipt
+process kill: after-document-page; preserved seed, atomic visibility, retry receipt
+process kill: before-request-page; preserved seed, atomic visibility, retry receipt
+process kill: after-request-page; preserved seed, atomic visibility, retry receipt
+process kill: before-membership-page; preserved seed, atomic visibility, retry receipt
+process kill: after-membership-page; preserved seed, atomic visibility, retry receipt
+process kill: split-after-document-page; preserved seed, atomic visibility, retry receipt
+process kill: split-after-membership-page; preserved seed, atomic visibility, retry receipt
+process kill: split-after-request-page; preserved seed, atomic visibility, retry receipt
+process kill: split-after-manifest; preserved seed, atomic visibility, retry receipt
+process kill: split-after-publication; preserved seed, atomic visibility, retry receipt
+process kill: before-outcome; preserved seed, atomic visibility, retry receipt
+process kill: after-outcome; preserved seed, atomic visibility, retry receipt
+process kill: before-publication; preserved seed, atomic visibility, retry receipt
+process kill: after-publication; preserved seed, atomic visibility, retry receipt
+process kill: after-ack; preserved seed, atomic visibility, retry receipt
+test emulator_s3_multiprocess_and_crash_recovery ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 36.44s
+
+
+Release scaling smoke
+S3 scaling prefix retained: qualification-20261023/scaling-b39e8802-b747-45e8-a9d4-a9ffd2070b18
+Scaling: 1024-byte binary payload, batch <=256, no engine cache; live document sizes then one-document request histories. OS caches are not flushed.
+| Operation | Size | ms | Object reads | Metadata bytes incl HEAD | Payload bytes | Tree pages read | Reader decode charge* | Objects created | Bytes written incl HEAD | CAS | Conflicts |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| open-live | 100 | 4.182 | 1 | 795 | 0 | 0 | 1274 | 0 | 0 | 0 | 0 |
+| point | 100 | 5.399 | 3 | 12437 | 1116 | 1 | 31372 | 0 | 0 | 0 | 0 |
+| bulk-100 | 100 | 239.051 | 201 | 1185488 | 111600 | 100 | 3011074 | 0 | 0 | 0 | 0 |
+| children-100 | 100 | 295.333 | 202 | 1187837 | 111600 | 101 | 3022172 | 0 | 0 | 0 | 0 |
+| descendants-100 | 100 | 134.894 | 102 | 12437 | 111600 | 1 | 31372 | 0 | 0 | 0 | 0 |
+| resolve | 100 | 3.911 | 3 | 7436 | 0 | 1 | 1680 | 0 | 0 | 0 | 0 |
+| update-one | 100 | 42.419 | 5 | 24628 | 0 | 4 | 62282 | 5 | 14141 | 1 | 0 |
+latency fill-batch: size=100, samples=1, p50=58.590 ms, p95=58.590 ms, p99=58.590 ms
+latency open-live: size=100, samples=8, p50=2.267 ms, p95=3.357 ms, p99=3.357 ms
+latency point: size=100, samples=8, p50=3.777 ms, p95=4.340 ms, p99=4.340 ms
+latency children-100: size=100, samples=8, p50=278.493 ms, p95=356.907 ms, p99=356.907 ms
+latency descendants-100: size=100, samples=8, p50=139.404 ms, p95=156.591 ms, p99=156.591 ms
+live scaling checkpoint: 100 documents
+| open-live | 1000 | 2.652 | 1 | 795 | 0 | 0 | 1274 | 0 | 0 | 0 | 0 |
+| point | 1000 | 5.119 | 4 | 17794 | 1116 | 2 | 45030 | 0 | 0 | 0 | 0 |
+| bulk-100 | 1000 | 400.531 | 301 | 1721188 | 111600 | 200 | 4376874 | 0 | 0 | 0 | 0 |
+| children-100 | 1000 | 390.619 | 303 | 1737824 | 111600 | 202 | 4455714 | 0 | 0 | 0 | 0 |
+| descendants-100 | 1000 | 110.512 | 103 | 17794 | 111600 | 2 | 45030 | 0 | 0 | 0 | 0 |
+| resolve | 1000 | 3.564 | 3 | 10139 | 0 | 1 | 3242 | 0 | 0 | 0 | 0 |
+| update-one | 1000 | 50.405 | 7 | 36584 | 0 | 6 | 92722 | 6 | 20121 | 1 | 0 |
+latency fill-batch: size=1000, samples=4, p50=420.687 ms, p95=711.417 ms, p99=711.417 ms
+latency open-live: size=1000, samples=8, p50=1.989 ms, p95=2.565 ms, p99=2.565 ms
+latency point: size=1000, samples=8, p50=4.879 ms, p95=6.013 ms, p99=6.013 ms
+latency children-100: size=1000, samples=8, p50=356.712 ms, p95=389.255 ms, p99=389.255 ms
+latency descendants-100: size=1000, samples=8, p50=126.919 ms, p95=153.550 ms, p99=153.550 ms
+live scaling checkpoint: 1000 documents
+live logical totals, not physical HTTP requests: Stats { head_reads: 102, object_reads: 8560, range_reads: 8560, bytes_read: 42460632, object_creates: 56, bytes_written: 1428469, head_cas_attempts: 8, head_cas_successes: 8, head_conflicts: 0, list_calls: 0, delete_calls: 0 }
+| hot-write | 100 | 40.181 | 5 | 25138 | 0 | 4 | 63174 | 5 | 14366 | 1 | 0 |
+| open-hot-history | 100 | 3.277 | 1 | 795 | 0 | 0 | 1274 | 0 | 0 | 0 | 0 |
+| hot-point | 100 | 4.799 | 3 | 745 | 1103 | 1 | 1652 | 0 | 0 | 0 | 0 |
+| hot-resolve | 100 | 4.217 | 3 | 13057 | 0 | 1 | 32156 | 0 | 0 | 0 | 0 |
+latency hot-write-window: size=100, samples=32, p50=40.702 ms, p95=52.323 ms, p99=52.388 ms
+latency hot-point: size=100, samples=8, p50=3.880 ms, p95=5.373 ms, p99=5.373 ms
+latency hot-resolve: size=100, samples=8, p50=4.227 ms, p95=5.777 ms, p99=5.777 ms
+hot scaling progress: 100 retained requests
+hot logical totals, not physical HTTP requests: Stats { head_reads: 121, object_reads: 551, range_reads: 551, bytes_read: 1440375, object_creates: 502, bytes_written: 832936, head_cas_attempts: 101, head_cas_successes: 101, head_conflicts: 0, list_calls: 0, delete_calls: 0 }
+* Reader decode charge is the bounded root/page reader estimate, excluding editor/result copies, payload parsing, and allocator RSS. Timings are individual samples; read probes and fill batches also report sampled distributions; the baseline supplies contention distributions. Serial probes have no competing writers; use the baseline and subprocess harness for contention. Actual S3 needs separate service-side HTTP/retry metrics.
+
