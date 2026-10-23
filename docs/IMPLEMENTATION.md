@@ -382,3 +382,45 @@ Clippy, and no-default-feature workspace checking all passed. The dedicated MinI
 container is stopped with its database objects retained. Actual AWS contract,
 expanded multiprocess recovery and scaling remain pending external credentials
 and a dedicated bucket/prefix; overall S3 acceptance remains open.
+
+### Final query-foundations corruption audit
+
+The required cycle case is now explicit: a checksummed, validly referenced branch
+points back to its own object while claiming a lower child level. Point and range
+traversal reject the child integrity hash after exactly two reads; copy-on-write
+editing rejects the inconsistent cached descriptor after one read. No preparation
+is published or persisted. A separately checksummed same-level child fails in the
+reader after one read, and an insufficient metadata-transfer budget fails before
+any storage read. These tests exercise production traversal with an in-memory
+byte adapter; they add no storage, format or API changes.
+
+Validation on 2026-10-23: both focused tests passed, as did formatting, **72 workspace
+tests with five ignored**, strict all-feature workspace Clippy, facade folder-only
+and S3-only Clippy, and no-default-feature workspace checking. The ignores remain
+the two external AWS gates, two opt-in emulator gates (separately passed in the
+preceding cycle), and the explicit large capacity workload (previous release run
+recorded above). PR #8's Linux, macOS and Windows CI checks all passed.
+
+The final plan audit maps the delivered code and evidence to all four milestones:
+
+- Metadata primitives: ordered-key properties, randomized BTreeMap operations,
+  split/merge/root-collapse checks, unchanged subtree identities, large receipts,
+  checksummed semantic corruption, explicit cycles, and bounded traversal.
+- Paged publication: root-only startup counters; async owned revision API; original
+  fingerprints/receipts; conflict and uncertain-outcome tests; membership existence
+  transitions; equivalent metadata-only rewrites; retained history and v1 rejection.
+- Discovery APIs: facade reference-model tests for bulk input order, duplication,
+  absence, virtual root, missing parents, escaped boundaries and parent deletion;
+  bounded native cursors; a runnable facade example and compatibility docs.
+- Qualification: pinned pagination under writes/reopen; independent-process
+  hierarchy visibility; all 24 kill markers and the separate folder recovery
+  barrier; aggregate metadata beyond 64 MiB; complete local validation and backend
+  feature builds; recorded 100/1,000/10,000/100,000-document and increasing request
+  histories with successful/abandoned upload accounting and latency distributions.
+
+All four implementation milestones have been delivered. As explicitly permitted
+by the approved plan, actual AWS qualification is recorded as pending external
+credentials and a dedicated bucket/prefix; emulator results do not close overall
+S3 acceptance. Scalar index lifecycle, compaction, reclamation and transport remain
+outside the query-foundations Task. HEAD contention and retained-storage growth
+remain documented limitations.
