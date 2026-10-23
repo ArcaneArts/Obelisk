@@ -304,5 +304,12 @@ visible together or absent together. Existing OS-lock-death and adapter-internal
 rename-before-directory-sync tests remain required. Process kills do not establish
 hardware power-loss durability.
 
+The metadata-only rewrite qualification also replaces pages in all three trees
+for a 256-document fixture, compares complete paginated results and revisions,
+preserves original receipts and historical reads after reopen, and retries a stale
+rewrite from fresh state. A response-loss test confirms explicit uncertainty after
+successful metadata-only publication, without creating payload or receipt objects.
+These tests exercise local POSIX storage; they add no performance measurements.
+
 Actual AWS S3 remains pending: no dedicated bucket or test prefix is configured.
 Neither emulator nor memory-adapter results count as actual-service qualification.
