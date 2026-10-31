@@ -214,7 +214,13 @@ async fn maximum_live_indexes_and_a_replacement_are_maintained_without_skipping_
         .await
         .unwrap();
     let receipt = engine
-        .commit(&tx("update-all", vec![put("people/a", Value::Integer(2))]))
+        .commit(&tx(
+            "update-all",
+            vec![
+                put("people/a", Value::Integer(2)),
+                put("people/b", Value::Integer(2)),
+            ],
+        ))
         .await
         .unwrap();
     for (definition, handle) in definitions.iter().zip(&handles) {
@@ -227,11 +233,19 @@ async fn maximum_live_indexes_and_a_replacement_are_maintained_without_skipping_
             .await
             .unwrap();
         assert_eq!(page.index, *handle);
-        assert_eq!(page.entries.len(), 1);
         assert_eq!(
-            Some(&page.entries[0].revision),
-            receipt.revisions[&path("people/a")].as_ref()
+            page.entries
+                .iter()
+                .map(|entry| entry.path.clone())
+                .collect::<Vec<_>>(),
+            vec![path("people/a"), path("people/b")]
         );
+        for entry in &page.entries {
+            assert_eq!(
+                Some(&entry.revision),
+                receipt.revisions[&entry.path].as_ref()
+            );
+        }
     }
     finish(&engine, &rebuilding.handle, "replacement", 1).await;
     let page = engine
@@ -247,12 +261,20 @@ async fn maximum_live_indexes_and_a_replacement_are_maintained_without_skipping_
         .await
         .unwrap();
     assert_eq!(page.index, rebuilding.handle);
-    assert_eq!(page.entries.len(), 1);
     assert_eq!(
-        Some(&page.entries[0].revision),
-        receipt.revisions[&path("people/a")].as_ref()
+        page.entries
+            .iter()
+            .map(|entry| entry.path.clone())
+            .collect::<Vec<_>>(),
+        vec![path("people/a"), path("people/b")]
     );
+    for entry in &page.entries {
+        assert_eq!(
+            Some(&entry.revision),
+            receipt.revisions[&entry.path].as_ref()
+        );
+    }
     eprintln!(
-        "maximum-index safety: 16 active definitions plus one building replacement maintained in one document publication; 17th definition rejected before uploads"
+        "maximum-index safety: 16 active definitions plus one building replacement maintained in one atomic replacement/post-base insertion batch; 17th definition rejected before uploads"
     );
 }

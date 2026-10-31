@@ -619,6 +619,37 @@ source path and inserting a post-base path. Retry persists only current entries,
 remains Building, counts the deleted source path on later steps, and activates with
 the correct complete result. Replaying the original step after activation preserves
 its original Building receipt. The focused case and all required checks pass.
-The maximum-index workload also passed separately in release mode in 5.94 seconds.
+The maximum-index workload also passed separately in release mode; its stronger
+replacement/post-base insertion case passed in 6.50 seconds.
 The full release matrix remains running at 100,000 documents; no completion claim
 is made from partial output.
+
+
+### Scalar Task acceptance audit at the qualification checkpoint
+
+This audit keeps the original cycles 16A/16B/17/18 scope. Running measurements and
+unmerged delivery are incomplete gates; passing narrower checks does not close them.
+
+| Requirement | Current authoritative evidence | State |
+| --- | --- | --- |
+| Validated, bounded lifecycle formats and crate boundaries | `index_lifecycle` public types; engine `metadata/lifecycle` round trips, maximum paths/identities, hostile checksummed payloads, versions, projections and tagged outcomes; unchanged byte-only storage contract | Verified locally; 16A merged as PR #10 |
+| Persisted create/status/list/advance/rebuild/drop/resolve | Engine/facade lifecycle tests; original outcomes across reopen, progress, semantic failure/repair, stale generations and shared request namespace | Verified locally; 16B merged as PR #11 |
+| Atomic building/active maintenance and fresh conflict recomputation | Registration/write, non-final chunk/write, builder/builder, activation/write and stale generation CAS gates; current/unscanned/deleted/post-base paths; metadata-only catalog/revision/outcome preservation | Verified locally |
+| Indexed type/scope/order/projection contract | Independent complete paginated reference results; all scalar types/directions and range endpoints; exact shape rejection; covered binary/list, missing fields and covered-only updates | Verified locally; 17 merged as PR #12 |
+| Retained snapshot continuations and explicit cursor errors | Reopen/write/rebuild/drop facade tests; native version/generation/query/projection/snapshot/database/position mismatches; independent-process retained pagination | Verified locally |
+| Compatibility, corruption and resource safety | V1/v2 rejection before uploads, lazy root-only opening, descriptor/entry/projection identity corruption, missing references, hard key bounds, source/decoded/prepared limits and prepared-root reader validation | Verified locally |
+| Independent-process and client-kill recovery | Two coordinated four-builder/four-writer phases, prepared rebuild versus independent drop/recreation, 50 indexed kill markers, existing 24 commit markers and lock-death case; raw process evidence | Verified locally; actual AWS and hardware power loss remain distinct |
+| Local validation and runnable developer experience | 108 passing workspace tests, five opt-in ignores, all six required checks, folder/S3 example builds, prior twice-run indexed facade example with persisted replay; checkpoint platform CI passed | Verified locally |
+| Capacity, selective work and unchanged subtrees | Release capacity: 100,000 documents and 91,200,000 live location bytes; indexed structural assertions; 16 active definitions plus one candidate maintained in debug and release | Verified locally |
+| Complete release scaling matrix | Existing process session covers 100/1,000/10,000/100,000 documents with zero/one/three indexes and a building replacement; full completion and final counter audit still awaited | Running; not complete |
+| Independent milestone delivery | PRs #10, #11 and #12 are merged; qualification source checkpoint is pushed and CI passed, but the final qualification PR is not yet open/merged | Pending milestone 18 delivery |
+| Rollout and remaining operational limits | Fresh v3 folders/prefixes; matching old binaries/data preserved; no reclamation/compaction/transport; logical IO, POSIX, retention and single-HEAD limits documented | Documented; final measured limits still to be added |
+| Actual AWS acceptance | No externally configured dedicated bucket/test prefix; no new AWS or emulator execution evidence | Explicit external gate remains open as permitted by the plan |
+
+
+The maximum-index gate now requires a new path inserted after replacement
+registration as well as an updated base path. Both paths must appear in all 16
+active indexes and, after activation, in the replacement. This directly proves
+foreground candidate maintenance at the configured maximum; the post-base path
+cannot be recovered by enumerating that candidate's pinned source. The focused
+debug/release cases pass. The final 100,000-document matrix is still running.
