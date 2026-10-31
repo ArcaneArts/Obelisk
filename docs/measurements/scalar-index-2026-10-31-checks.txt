@@ -1,0 +1,221 @@
+$ cargo fmt --all -- --check
+$ cargo test --workspace --all-features --locked
+   Compiling obelisk-engine v0.1.0 (/Users/cyberpwn/development/workspace/ArcaneArts/Cantrip/.cantrip/dev/worker/worktrees/cddf0584a05ebfd20b23/obelisk-scalar-index-qualification-95479fb410a2/crates/obelisk-engine)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.10s
+     Running unittests src/lib.rs (target/debug/deps/obelisk-cc32d420320386e8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/api.rs (target/debug/deps/api-254ba526a556a0b0)
+
+running 1 test
+test public_lifecycle ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.47s
+
+     Running tests/index_lifecycle.rs (target/debug/deps/index_lifecycle-8fb6eb8d52373ccd)
+
+running 1 test
+test facade_lifecycle_reopens_and_replays_receipts_before_state_conditions ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.04s
+
+     Running tests/indexed_queries.rs (target/debug/deps/indexed_queries-0303a2c051d2f900)
+
+running 3 tests
+test covering_projection_and_bounded_pages_avoid_full_payload_lookahead ... ok
+test exact_planning_and_pinned_cursors_survive_writes_reopen_rebuild_and_drop ... ok
+test paginated_mixed_scalar_queries_match_independent_document_reference ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 25.96s
+
+     Running tests/multiprocess.rs (target/debug/deps/multiprocess-4e584328f214d1ac)
+
+running 4 tests
+test emulator_s3_multiprocess_and_crash_recovery ... ignored, requires a dedicated S3 emulator endpoint, bucket, prefix and credentials
+test real_s3_multiprocess_and_crash_recovery ... ignored, requires actual AWS S3 bucket, isolated prefix, and external credentials
+test worker_process ... ok
+test folder_multiprocess_and_crash_recovery has been running for over 60 seconds
+test folder_multiprocess_and_crash_recovery ... ok
+
+test result: ok. 2 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 161.33s
+
+     Running tests/query.rs (target/debug/deps/query-be8851dae5fc8ae6)
+
+running 6 tests
+test bad_bulk_input_is_rejected_before_storage_reads ... ok
+test byte_bounded_pages_resume_without_skipping_prefetched_documents ... ok
+test bulk_preserves_order_duplicates_missing_entries_and_pinned_revisions ... ok
+test cursor_scope_kind_snapshot_and_database_mismatches_are_explicit ... ok
+test hierarchy_matches_structured_reference_with_missing_parents_and_escapes ... ok
+test continuations_pin_data_across_writes_and_reopened_engines ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.17s
+
+     Running unittests src/lib.rs (target/debug/deps/obelisk_engine-d3982356d5593fab)
+
+running 75 tests
+test format::tests::hostile_lengths_and_trailing_data_are_bounded ... ok
+test format::tests::all_value_types_roundtrip_and_corruption_fails ... ok
+test format::tests::scalar_document_roundtrip ... ok
+test format::tests::arbitrary_bytes_never_panic ... ok
+test index_corruption_tests::initialization_must_fit_the_configured_snapshot_reader_before_upload ... ok
+test index_corruption_tests::build_progress_must_identify_a_real_pinned_source_path ... ok
+test indexed_plan::tests::directed_bounds_match_independent_scalar_comparisons_at_extremes ... ok
+test index_tests::v2_opening_fails_without_writes_and_v3_startup_keeps_index_data_lazy ... ok
+test index_corruption_tests::covered_projection_preparation_budget_fails_without_uploads_or_publication ... ok
+test index_tests::scope_eligibility_precedes_scalar_key_size_validation ... ok
+test index_race_tests::a_stale_builder_cannot_publish_after_drop_and_recreation ... ok
+test metadata::index_tests::all_scalar_encodings_follow_declared_order ... ok
+test index_tests::limits_reject_extra_builds_and_low_writer_limits_but_preserve_request_replay ... ok
+test metadata::index_tests::composite_keys_roundtrip_prefix_and_tie_break_by_structured_path ... ok
+test index_race_tests::writer_prepared_before_registration_retries_with_candidate_maintenance ... ok
+test metadata::index_tests::definition_codec_and_document_projection_are_strict ... ok
+test metadata::index_tests::finite_double_key_order_matches_values ... ok
+test metadata::index_tests::index_page_families_are_distinct ... ok
+test metadata::index_tests::integer_key_order_matches_values ... ok
+test metadata::index_tests::scalar_key_bounds_and_malformed_keys_fail_closed ... ok
+test metadata::index_tests::arbitrary_bytes_never_panic ... ok
+test metadata::lifecycle_tests::management_fingerprints_bind_operation_generation_definition_and_limits ... ok
+test metadata::lifecycle_tests::descriptors_cover_build_rebuild_failure_and_scope_validation ... ok
+test index_tests::source_byte_limits_and_aggregate_limits_never_skip_unprocessed_input_or_publish_failures ... ok
+test metadata::lifecycle_tests::maximum_paths_and_identities_fit_bounded_descriptors ... ok
+test metadata::lifecycle_tests::projection_objects_preserve_large_binary_and_typed_lists_outside_leaves ... ok
+test metadata::lifecycle_tests::v3_heads_roots_are_additive_and_reject_inconsistent_catalogs ... ok
+test metadata::lifecycle_tests::valid_checksums_do_not_bypass_semantic_and_budget_bounds ... ok
+test metadata::tests::a_local_edit_preserves_a_distant_sparse_tail ... ok
+test metadata::tests::checksummed_metadata_rejects_semantic_corruption_and_missing_children ... ok
+test metadata::tests::cyclic_references_fail_with_bounded_point_range_and_edit_work ... ok
+test metadata::lifecycle_tests::tagged_outcomes_preserve_document_receipts_and_management_results ... ok
+test metadata::tests::hostile_pages_descriptors_and_budgets_fail_closed ... ok
+test metadata::tests::key_order_matches_structured_order ... ok
+test metadata::tests::local_updates_reuse_subtrees_and_noops_write_nothing ... ok
+test index_corruption_tests::metadata_only_publications_preserve_catalog_entries_revisions_and_original_outcomes ... ok
+test metadata::tests::non_descending_child_levels_and_transfer_limits_fail_before_following_edges ... ok
+test metadata::tests::ordered_paths_and_memberships_respect_boundaries ... ok
+test metadata::tests::roots_and_large_outcomes_roundtrip_without_page_overflow ... ok
+test metadata::tests::arbitrary_and_checksummed_bytes_never_panic ... ok
+test metadata::lifecycle_tests::arbitrary_and_checksummed_payloads_stay_bounded ... ok
+test index_race_tests::management_response_loss_resolves_all_operations_and_final_conflict_lookup ... ok
+test index_race_tests::a_nonfinal_chunk_conflict_reconciles_processed_unscanned_deleted_and_new_paths ... ok
+test metadata::tests::maximum_paths_split_multiple_levels_and_collapse_after_deletion ... ok
+test indexed_query::tests::native_indexed_cursor_versions_generations_and_positions_are_checked ... ok
+test index_corruption_tests::cross_object_definition_and_entry_identities_are_checked_before_writes ... ok
+test paged_tests::v1_databases_are_rejected_without_writes_and_limits_fail_before_publication ... ok
+test index_tests::rebuild_maintains_both_generations_and_preserves_historical_entries ... ok
+test paged_tests::metadata_only_rewrite_lost_response_remains_explicit_and_reopens ... ok
+test qualification_tests::paged_capacity_exceeds_the_old_manifest_limit ... ignored, large disposable POSIX capacity workload; run release mode explicitly
+test index_tests::incremental_build_reconciles_current_documents_and_reopens_with_original_outcomes ... ok
+test paged_tests::lazy_startup_reads_only_root_and_defers_document_corruption ... ok
+test paged_tests::hierarchy_membership_tracks_existence_without_rewriting_on_patch ... ok
+test metadata::tests::shuffled_wide_path_deletions_keep_internal_fanout ... ok
+test snapshot::tests::initialize_reopen_and_pinned_snapshot ... ok
+test metadata::tests::generated_batches_match_reference_and_preserve_old_roots ... ok
+test qualification_tests::bulk_and_query_budgets_bound_work_without_partial_vectors_or_writes ... ok
+test index_tests::oversized_source_failure_is_persisted_and_old_unindexable_values_can_be_repaired ... ok
+test index_race_tests::activation_conflicts_and_competing_builders_reconcile_latest_values_and_progress ... ok
+test query::tests::malformed_native_cursor_versions_and_positions_fail_explicitly ... ok
+test transaction::tests::absent_and_explicit_read_conditions ... ok
+test transaction::tests::request_records_survive_reopen_and_normalize_batch_order ... ok
+test transaction::tests::atomic_batches_revisions_patches_and_snapshots ... ok
+test transaction::tests::concurrent_identical_requests_commit_once ... ok
+test transaction::tests::deleted_and_recreated_documents_never_reuse_revisions ... ok
+test transaction::tests::head_conflict_recomputes_patches_from_the_latest_document ... ok
+test qualification_tests::large_document_pages_stop_at_bytes_and_resume_the_same_snapshot ... ok
+test transaction::tests::lost_response_and_transport_retry_conflict_resolve_original_receipt ... ok
+test paged_tests::metadata_only_publication_preserves_revisions_receipts_and_historical_roots ... ok
+test qualification_tests::counters_prove_root_only_opening_local_updates_and_selective_children ... ok
+test transaction::tests::concurrent_disjoint_writers_preserve_every_commit ... ok
+test indexed_query::tests::referenced_covered_projection_identity_and_membership_corruption_fail_reads ... ok
+test indexed_qualification_tests::maximum_live_indexes_and_a_replacement_are_maintained_without_skipping_generations ... ok
+test paged_tests::maximum_batch_paths_remain_readable_across_split_and_collapse ... ok
+test indexed_qualification_tests::indexed_open_selective_work_and_local_edits_preserve_unrelated_subtrees ... ok
+
+test result: ok. 74 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 40.18s
+
+     Running unittests src/lib.rs (target/debug/deps/obelisk_storage-3980cd1c70c71a40)
+
+running 6 tests
+test folder::tests::publication_crash_worker ... ok
+test s3::tests::rejects_ambiguous_prefixes ... ok
+test s3::tests::adapter_logic_against_memory_store ... ok
+test folder::tests::relative_root_is_pinned_when_opened ... ok
+test folder::tests::interrupted_publication_requires_a_successful_read_barrier ... ok
+test folder::tests::killed_publisher_is_recovered_by_an_already_open_reader ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/contract.rs (target/debug/deps/contract-9398f8b0f9f8a8d5)
+
+running 2 tests
+test concurrent_open_and_head_initialization ... ok
+test folder_contract ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests/s3_real.rs (target/debug/deps/s3_real-9a2866cd1977a985)
+
+running 2 tests
+test emulator_s3_contract ... ignored, requires a dedicated S3 emulator endpoint, bucket, prefix and credentials
+test real_s3_contract ... ignored, requires OBELISK_S3_BUCKET, OBELISK_S3_TEST_PREFIX and external AWS credentials
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/obelisk_types-1683d34cbaf20dae)
+
+running 13 tests
+test index::tests::scalar_types_are_exact ... ok
+test value::tests::double_rules ... ok
+test value::tests::nesting_limit_includes_declared_empty_list_types ... ok
+test value::tests::typed_empty_and_nested_lists ... ok
+test transaction::tests::rejects_duplicate_mutations_and_invalid_ids ... ok
+test query::tests::query_options_and_virtual_root_preserve_path_validation ... ok
+test document::tests::conflicting_fields_and_patch_replacement ... ok
+test index_lifecycle::tests::work_and_identity_limits_are_validated ... ok
+test path::tests::boundaries_and_escapes ... ok
+test index::tests::definitions_are_bounded_canonical_and_unambiguous ... ok
+test index_query::tests::indexed_shapes_types_projections_and_range_position_are_validated ... ok
+test document::tests::enforces_document_resource_bounds ... ok
+test path::tests::structured_paths_roundtrip ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+   Doc-tests obelisk
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests obelisk_engine
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests obelisk_storage
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests obelisk_types
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+$ cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+    Checking obelisk-engine v0.1.0 (/Users/cyberpwn/development/workspace/ArcaneArts/Cantrip/.cantrip/dev/worker/worktrees/cddf0584a05ebfd20b23/obelisk-scalar-index-qualification-95479fb410a2/crates/obelisk-engine)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.12s
+$ cargo clippy -p obelisk --all-targets --locked -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s
+$ cargo clippy -p obelisk --no-default-features --features s3 --all-targets --locked -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.25s
+$ cargo check --workspace --no-default-features --locked
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.16s
+$ cargo build -p obelisk --examples --locked
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.11s
+$ cargo build -p obelisk --no-default-features --features s3 --examples --locked
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.23s

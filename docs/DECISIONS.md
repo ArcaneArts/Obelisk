@@ -326,3 +326,29 @@ stop conservatively if the next full record might exceed remaining response spac
 an empty page can still fetch that record to return its smaller projection.
 No maximum-fill guarantee is made. This avoids redundant full reads without adding
 per-field size metadata or another persistence format.
+
+## Scalar qualification and operational bounds (18)
+
+The complete local release matrix and independent-process recovery suite qualify
+the implemented scalar block within its documented POSIX prototype scope. The
+100,000-document matrix compares zero/one/three active indexes plus a maintained
+building replacement; the separate maximum-index gate proves correctness at 16
+active definitions plus one candidate, not throughput at that maximum. Keep these
+limits until a separate measured change justifies raising them.
+
+Opening remains root-only: populated v3 roots measure 386 bytes without a catalog
+and 467 with one, transferring 800/881 logical bytes including two HEAD reads.
+Selective queries avoid document scans and covered/key-only results avoid full
+payload reads, but repeated location traversals and index construction still have
+substantial cost. The first 100,000-document covering build took 49.08 minutes in
+32-path chunks on the recorded host. Foreground maintenance and abandoned CAS
+preparations increase work; immutable history/outcomes/orphans remain retained.
+Do not infer physical HTTP costs or deployment latency targets from logical
+counters and small samples. Full evidence is in BASELINE.md and its scalar report.
+
+No production engine/storage behavior changes in the qualification milestone.
+Further read batching/caching, compaction, backup/restore and reclamation require
+separate Tasks preserving authoritative HEAD freshness and snapshot/outcome safety.
+Actual AWS and hardware power loss remain unqualified; older emulator evidence
+does not qualify these indexes. Use fresh v3 storage and preserve older data with
+its matching binary.

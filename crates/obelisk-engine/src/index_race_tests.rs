@@ -434,3 +434,90 @@ async fn management_response_loss_resolves_all_operations_and_final_conflict_loo
             .is_none()
     );
 }
+
+#[tokio::test]
+async fn a_nonfinal_chunk_conflict_reconciles_processed_unscanned_deleted_and_new_paths() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = folder(&dir).await;
+    let engine = open(store.clone()).await;
+    engine
+        .commit(&tx(
+            "seed-nonfinal",
+            vec![
+                put("people/a", Value::Integer(1)),
+                put("people/b", Value::Integer(2)),
+                put("people/c", Value::Integer(3)),
+            ],
+        ))
+        .await
+        .unwrap();
+    let definition = definition("scores", ScalarType::Integer, false);
+    let created = engine
+        .create_index(&request("create-nonfinal"), definition.clone())
+        .await
+        .unwrap();
+    let gate = Arc::new(FaultStore::new(store));
+    let builder = open(gate.clone()).await;
+    gate.gate.store(true, Ordering::SeqCst);
+    let handle = created.handle.clone();
+    let task = tokio::spawn(async move {
+        builder
+            .advance_index_build(
+                &request("nonfinal-step"),
+                &handle,
+                IndexBuildOptions::new(1).unwrap(),
+            )
+            .await
+    });
+    gate.wait().await;
+    engine
+        .commit(&tx(
+            "during-nonfinal",
+            vec![
+                put("people/a", Value::Integer(10)),
+                put("people/b", Value::Integer(20)),
+                Mutation {
+                    path: path("people/c"),
+                    condition: Condition::Any,
+                    kind: MutationKind::Delete,
+                },
+                put("people/d", Value::Integer(40)),
+            ],
+        ))
+        .await
+        .unwrap();
+    gate.release.notify_one();
+    let step = task.await.unwrap().unwrap();
+    assert_eq!(gate.conflicts.load(Ordering::SeqCst), 1);
+    assert_eq!(step.state, IndexState::Building);
+    assert_eq!(step.progress.examined(), 1);
+    assert_eq!(step.progress.last_path(), Some(&path("people/a")));
+    let candidate = engine
+        .get_index(definition.id())
+        .await
+        .unwrap()
+        .unwrap()
+        .candidate
+        .unwrap();
+    assert_eq!(candidate.progress, step.progress);
+    let active = finish(&engine, &created.handle, "nonfinal-rest", 1).await;
+    assert_eq!(active.progress.examined(), 3);
+    assert_rows(
+        &engine.snapshot().await.unwrap(),
+        definition.id(),
+        &[("people/a", 10), ("people/b", 20), ("people/d", 40)],
+    )
+    .await;
+    assert_eq!(
+        engine
+            .advance_index_build(
+                &request("nonfinal-step"),
+                &created.handle,
+                IndexBuildOptions::new(1).unwrap(),
+            )
+            .await
+            .unwrap(),
+        step,
+        "replaying the nonfinal step must retain its original receipt after activation"
+    );
+}

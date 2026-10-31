@@ -83,3 +83,6 @@ mod index_race_tests;
 
 #[cfg(test)]
 mod index_corruption_tests;
+
+#[cfg(test)]
+mod indexed_qualification_tests;

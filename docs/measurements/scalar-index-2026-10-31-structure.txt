@@ -1,0 +1,10 @@
+   Compiling obelisk-engine v0.1.0 (/Users/cyberpwn/development/workspace/ArcaneArts/Cantrip/.cantrip/dev/worker/worktrees/cddf0584a05ebfd20b23/obelisk-scalar-index-qualification-95479fb410a2/crates/obelisk-engine)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.90s
+     Running unittests src/lib.rs (target/debug/deps/obelisk_engine-2a71ea66a6c3b27a)
+
+running 2 tests
+maximum-index safety: 16 active definitions plus one building replacement maintained in one document publication; 17th definition rejected before uploads
+test indexed_qualification_tests::maximum_live_indexes_and_a_replacement_are_maintained_without_skipping_generations ... ok
+test indexed_qualification_tests::indexed_open_selective_work_and_local_edits_preserve_unrelated_subtrees ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 72 filtered out; finished in 36.31s

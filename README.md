@@ -150,9 +150,10 @@ Scalar definitions support exact children/descendants scopes, one to eight exact
 string/integer/double/boolean components, directions and optional covered fields.
 Missing/type-mismatched components omit an entry. Covered fields retain binary and
 typed-list values in separate bounded immutable objects. Filtered/ordered queries
-use active generations as described below; expanded independent-process indexed
-interruption and scaling qualification follows in cycle 18. The v3 lifecycle does not enable reclamation,
-compaction, portable cursors or a wire protocol.
+use active generations as described below. Local independent-process recovery and
+the complete 100,000-document release matrix are recorded in the
+[scalar qualification report](docs/measurements/scalar-index-2026-10-31.md).
+The v3 lifecycle does not enable reclamation, compaction, portable cursors or a wire protocol.
 
 ## Indexed queries
 
@@ -253,7 +254,7 @@ through a reopened database after writes. Page size/byte budgets may change;
 query scope and kind may not. Cross-database or mismatched-snapshot tokens fail
 explicitly. Cursors have no public serialization/decoder and do not expire while
 history is retained. They need no server-side session. Use the scalar-query API
-below for filtering and field ordering.
+above for filtering and field ordering.
 
 Run the hierarchy facade example against a fresh v3 POSIX folder:
 
@@ -272,3 +273,18 @@ capacity beyond the former manifest bound, and current small-operation costs.
 Optional `diagnostics::InstrumentedMetadata` counters distinguish metadata families
 from payload reads; they measure logical bytes, not HTTP requests or allocator RSS.
 Actual AWS S3 qualification still requires external bucket/prefix configuration.
+
+
+For the scalar-index release matrix, run the separate opt-in workload:
+
+```sh
+OBELISK_BASELINE_BACKEND=folder cargo run --release -p obelisk --example index_scaling --locked
+```
+
+It grows one dataset through 100, 1,000, 10,000 and 100,000 documents and measures
+zero/one/three active indexes plus a building replacement, including bounded builds,
+selective covered/full reads, serial updates, contended publication and abandoned
+uploads. `OBELISK_INDEX_SCALING_MAX` can lower the largest checkpoint for a smoke run;
+only the complete run qualifies the full matrix. See BASELINE.md for methodology,
+recorded evidence and limits. This uses disposable local data; S3 prefixes remain
+retained and require explicit external configuration.
