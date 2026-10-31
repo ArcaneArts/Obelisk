@@ -58,7 +58,7 @@ async fn counters_prove_root_only_opening_local_updates_and_selective_children()
     assert_eq!(diagnostics.stats(ObjectKind::Root).reads, 1);
     assert_eq!(
         diagnostics.stats(ObjectKind::Root).reader_decode_charge,
-        1274
+        1284
     );
     for kind in [
         ObjectKind::Documents,

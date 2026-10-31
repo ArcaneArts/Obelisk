@@ -176,6 +176,21 @@ pub struct IndexReceipt {
     pub failure: Option<IndexBuildFailure>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndexBuildStatus {
+    pub handle: IndexHandle,
+    pub state: IndexState,
+    pub progress: IndexBuildProgress,
+    pub failure: Option<IndexBuildFailure>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndexStatus {
+    pub definition: IndexDefinition,
+    pub active: Option<IndexHandle>,
+    pub candidate: Option<IndexBuildStatus>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

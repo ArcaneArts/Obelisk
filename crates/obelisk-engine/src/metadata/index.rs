@@ -243,15 +243,22 @@ pub fn index_entry_for_document(
     if !definition.scope().contains(path) {
         return Ok(None);
     }
+    // Eligibility is independent of encoding size: a later missing/type-mismatched
+    // field omits the row even when an earlier scalar alone would be too large.
+    if definition.fields().iter().any(|field| {
+        document
+            .get(field.path())
+            .is_none_or(|value| !field.scalar_type().matches(value))
+    }) {
+        return Ok(None);
+    }
     let mut key = Vec::new();
     for field in definition.fields() {
-        let Some(value) = document.get(field.path()) else {
-            return Ok(None);
-        };
-        if !field.scalar_type().matches(value) {
-            return Ok(None);
-        }
-        encode_component(field, value, &mut key)?;
+        encode_component(
+            field,
+            document.get(field.path()).expect("eligibility checked"),
+            &mut key,
+        )?;
     }
     finish_entry_key(definition, key, path).map(Some)
 }
@@ -342,35 +349,40 @@ pub fn encode_index_definition(definition: &IndexDefinition) -> Result<Vec<u8>> 
     Ok(bytes)
 }
 pub fn decode_index_definition(bytes: &[u8]) -> Result<IndexDefinition> {
-    if bytes.len() > MAX_VALUE_BYTES {
-        return Err(corrupt("index definition byte limit"));
-    }
-    let result = (|| {
-        let mut reader = format::Reader::new(format::payload(bytes, INDEX_DEFINITION_KIND)?);
-        let id = IndexId::new(reader.text(256)?)?;
-        let scope = read_scope(&mut reader)?;
-        let count = reader.count(MAX_INDEX_FIELDS, 128)?;
-        let mut fields = Vec::with_capacity(count);
-        for _ in 0..count {
-            fields.push(IndexField::new(
-                FieldPath::from_segments(read_segments(&mut reader)?)?,
-                scalar_type(reader.byte()?)?,
-                order(reader.byte()?)?,
-            ));
-        }
-        let count = reader.count(MAX_COVERED_FIELDS, 128)?;
-        let mut covered = Vec::with_capacity(count);
-        for _ in 0..count {
-            covered.push(FieldPath::from_segments(read_segments(&mut reader)?)?);
-        }
-        if covered.windows(2).any(|pair| pair[0] >= pair[1]) {
-            return Err(corrupt("noncanonical covered field order"));
-        }
-        reader.finish()?;
-        IndexDefinition::new(id, scope, fields, covered).map_err(Into::into)
-    })();
-    result.map_err(|error| match error {
-        Error::Validation(error) => corrupt(&error.to_string()),
-        other => other,
-    })
+    let mut budget = 128 * 1024 * 1024;
+    decode_index_definition_budget(bytes, &mut budget)
+}
+pub(crate) fn decode_index_definition_budget(
+    bytes: &[u8],
+    budget: &mut usize,
+) -> Result<IndexDefinition> {
+    super::lifecycle::decoded(
+        bytes,
+        INDEX_DEFINITION_KIND,
+        1,
+        MAX_VALUE_BYTES,
+        budget,
+        |reader| {
+            let id = IndexId::new(reader.text(256)?)?;
+            let scope = read_scope(reader)?;
+            let count = reader.count(MAX_INDEX_FIELDS, 128)?;
+            let mut fields = Vec::with_capacity(count);
+            for _ in 0..count {
+                fields.push(IndexField::new(
+                    FieldPath::from_segments(read_segments(reader)?)?,
+                    scalar_type(reader.byte()?)?,
+                    order(reader.byte()?)?,
+                ));
+            }
+            let count = reader.count(MAX_COVERED_FIELDS, 128)?;
+            let mut covered = Vec::with_capacity(count);
+            for _ in 0..count {
+                covered.push(FieldPath::from_segments(read_segments(reader)?)?);
+            }
+            if covered.windows(2).any(|pair| pair[0] >= pair[1]) {
+                return Err(corrupt("noncanonical covered field order"));
+            }
+            Ok(IndexDefinition::new(id, scope, fields, covered)?)
+        },
+    )
 }

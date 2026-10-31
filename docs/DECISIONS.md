@@ -58,8 +58,8 @@ Every head payload must contain a fresh commit identity to prevent ABA.
 Use explicit bounded binary encodings with format-kind/version envelopes and BLAKE3
 checksums. Keys encode segment boundaries. Metadata indexes document locations and
 request outcomes separately from document payloads, so opening reads metadata only.
-The historical v1 manifests grew with document/request counts. Current v2
-metadata uses immutable ordered pages; document segments remain sorted batches. No history replay, automatic compaction, or reclamation is required.
+The historical v1 manifests grew with document/request counts. Current v3
+metadata extends the v2 immutable ordered pages with an index catalog; document segments remain sorted batches. No history replay, automatic compaction, or reclamation is required.
 
 Default limits: 1 MiB encoded document, 1024 fields/document, 10000 list elements,
 256 mutations and 256 explicit read conditions/batch, 16 MiB encoded transaction,
@@ -241,3 +241,50 @@ handle, publication identity, resulting state/progress and bounded failure.
 Creating/rebuilding yields Building; advancing may yield Building, Active or
 Failed; dropping yields Dropped. Namespace deduplication and wrong-kind resolution
 will be enforced by lifecycle integration, not by these pure codecs alone.
+
+## Scalar lifecycle integration (16B)
+
+Production now uses v3 HEAD/root and tagged v2 outcomes. V1/v2 databases reject
+before preparation or publication, with no migration or reset. Root-only opening
+remains lazy; an indexed snapshot loads descriptors/definitions/entries only when
+needed. Old document fingerprints, encodings, revisions and original receipts are
+preserved. Inspection returns at most 16 catalog entries from one snapshot.
+Configured lower live-index limits reject index operations/writes rather than
+silently skip committed generations; ordinary document reads remain lazy.
+
+Registration and rebuild pin a committed source snapshot. A chunk enumerates exact
+children/descendant paths there, validates its saved source position, reads their
+current documents, and publishes entries plus progress through the common HEAD
+CAS. Every foreground write maintains active and building generations, including
+post-registration paths. Thus processed source paths plus all paths mutated since
+registration cover current eligible documents at source exhaustion. Activation
+needs no unbounded catch-up or final full scan. Conflicting builders reload both
+current values and persisted progress; stale handles cannot resurrect dropped or
+recreated generations. Rebuild preserves the old active generation until activation.
+
+Failed semantic builds retain original progress/tree and any active generation;
+failed candidates are not maintained. Repair/rebuild and drop remain explicit.
+An oversized old key in an incomplete build had no possible candidate entry, so
+repair/removal is allowed; new eligible oversized keys fail atomically. Eligibility
+checks all components before encoding so a later missing/type-mismatched field
+still omits an entry even when an earlier value alone is oversized.
+
+Management mutations use the common persisted namespace, domain-separated
+fingerprints and original receipts. Deduplication precedes generation/state
+conditions. All management operations resolve response loss, including a concealed
+success followed by a conflict with a one-attempt retry budget. Resolution-read
+failure preserves explicit uncertainty and the request identity. No permanent
+writer, worker lease, cache, cleanup or independent index publication is introduced.
+
+Covered projections are prepared under decoded and prepared-byte budgets before
+any upload. Maintained entries verify old generation/location/coverage identity;
+corrupt definitions/entries and impossible source positions fail without a new
+publication. Metadata-only roots retain catalog references, document revisions and
+original outcomes. Public indexed querying and covered-read validation remain
+cycle 17; expanded independent-process/index-kill/scaling evidence remains cycle 18.
+
+
+Prepared HEAD/root bytes must fit a fresh configured snapshot-reader budget before
+any object upload. This applies to initialization and the shared publisher, so
+preparation cannot create authoritative state that the same profile cannot reopen.
+The operation's aggregate preparation budget remains separately enforced.

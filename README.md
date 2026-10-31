@@ -57,8 +57,7 @@ The S3 example requires `OBELISK_S3_BUCKET` and `OBELISK_S3_PREFIX`.
 There are no field-filtered queries, compaction, garbage collection, backup/restore, or
 network protocol yet. Nothing automatically reclaims committed history, orphaned
 uploads, or abandoned temporary files. Immutable segments grow with writes; metadata uses immutable copy-on-write B+
-pages with separate document, request,
-and parent-membership roots. Opening reads only HEAD and a small root manifest;
+pages with document, request, parent-membership and index-catalog roots. Opening reads only HEAD and a small root manifest;
 point operations load relevant pages. Total metadata is no longer limited by one
 64 MiB manifest. Historical pages, receipts, and payloads still accumulate without
 compaction or reclamation. One head serializes commits per database and can
@@ -90,9 +89,11 @@ cargo check --workspace --no-default-features --locked
 
 ## Paged-format compatibility and limits
 
-Fresh databases use HEAD/root format v2. Existing v1 databases fail explicitly
-before writes; opening never migrates or resets them. Preserve old data and use a
-fresh folder/prefix for v2. Old binaries reject v2 HEAD before transactions.
+Fresh databases use HEAD/root format v3. Existing v1/v2 databases fail explicitly
+before immutable-object preparation or publication; opening never migrates or resets
+them. Preserve old data and matching binaries, and use a fresh folder/prefix for v3.
+Old binaries reject v3 HEAD before transactions. A binary downgrade does not roll
+a v3 database back to its older format.
 Document record and canonical transaction fingerprint encodings remain unchanged.
 
 `Snapshot::revision(&path).await?` now returns an owned `Option<Revision>` because
@@ -100,20 +101,58 @@ metadata loads lazily. `DatabaseOptions.resources` accepts validated limits for
 metadata page reads, metadata transfer, decoded allocation, and prepared metadata.
 Defaults are 4096 page reads and 64 MiB for each byte budget; lower nonzero limits
 are allowed. Hard page/root/receipt bounds remain independent of these options.
-Parent membership is maintained atomically with document mutations. Scalar field
-indexes are not yet integrated with the authoritative root.
+Parent membership and every maintained scalar generation change atomically with
+matching document mutations. Opening still reads only HEAD and the small root;
+catalogs and scalar-entry trees load lazily.
 
-Validated scalar-index definition and ordered-key primitives are available for the
-next implementation block, but they are deliberately not attached to v2 roots yet.
-No index is created, maintained, or query-visible in this cycle; ordinary database
-behavior and compatibility are unchanged.
+## Scalar index lifecycle
 
-Cycle 16A adds validated generation handles, progress and bounded build options,
-plus engine-owned lifecycle/entry/projection/tagged-outcome codecs. These remain
-additive primitives: production still opens and writes v2. Lifecycle APIs and the
-fresh-folder/prefix v3 switch belong to 16B, which must also maintain building and
-active generations on every document write. Indexed queries follow in cycle 17;
-independent-process, crash and scaling qualification follows in cycle 18.
+`create_index(request_id, definition)` registers a new building generation.
+`get_index(&id)` and `list_indexes()` return committed definitions, active handles,
+candidate progress and failures; the same inspection methods exist on `Snapshot`.
+`list_indexes` returns at most 16 entries from one snapshot.
+
+`advance_index_build(request_id, &handle, options)` performs one bounded step.
+The pinned source snapshot enumerates paths; each step indexes their current
+values. Writers maintain both active and building generations, including new
+paths absent from that source. Source exhaustion atomically activates the candidate.
+Stop a worker between calls and reopen the database to resume; no background
+process or worker lease is required.
+
+Use a new request ID for each successful next step. Repeating an ID with the same
+operation returns its original receipt, including the old state/progress after
+later edits, activation or drop. Reusing it with other arguments fails. After an
+uncertain response, call `resolve_index_operation(request_id)` or repeat exactly
+the same operation. A missing result does not exclude an in-flight operation.
+Document and management operations share the request namespace; the wrong resolve
+method returns `RequestKindMismatch`.
+
+`IndexBuildOptions` defaults to 100 examined source documents and 16 MiB source
+bytes, caps documents at 256, and accepts lower limits. Progress counts examined
+source paths, even if their current document is missing or not eligible. A byte
+boundary stops before the next input; aggregate-resource failures publish no
+progress. Inspect a Failed candidate's path/reason, repair the document and call
+`rebuild_index` with its handle. Oversized scalar tuples are never truncated or
+hashed. Writes producing an unindexable eligible key fail atomically while its
+index is building/active. Repairing or deleting an oversized pre-build value is
+allowed; failed candidates impose no ongoing write maintenance.
+
+`rebuild_index(request_id, &handle)` creates a replacement generation of the same
+definition while the active one continues receiving writes. `drop_index` removes
+both current generations without reclaiming historical objects. Recreation uses
+a fresh generation; stale handles fail. Definitions are immutable within a
+generation. There is one building candidate per database and at most 16 live
+index definitions. `DatabaseOptions.indexes = IndexLimits::new(n)?` may lower the
+live limit. Index operations and writes fail explicitly when the configured limit
+cannot cover committed indexes; they never skip maintenance.
+
+Scalar definitions support exact children/descendants scopes, one to eight exact
+string/integer/double/boolean components, directions and optional covered fields.
+Missing/type-mismatched components omit an entry. Covered fields retain binary and
+typed-list values in separate bounded immutable objects. Public filtered/ordered
+queries arrive in cycle 17; independent-process indexed interruption and scaling
+qualification follows in cycle 18. The v3 lifecycle does not enable reclamation,
+compaction, portable cursors or a wire protocol.
 
 ## Bulk reads and hierarchy discovery
 
@@ -159,7 +198,7 @@ explicitly. Cursors have no public serialization/decoder and do not expire while
 history is retained. They need no server-side session. Filtering and field ordering
 require the subsequent scalar-index block.
 
-Run the complete facade example against a v2 POSIX folder:
+Run the hierarchy facade example against a fresh v3 POSIX folder:
 
 ```sh
 cargo run -p obelisk --example queries -- /tmp/obelisk-queries

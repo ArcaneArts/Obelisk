@@ -14,6 +14,12 @@ fn segments_key(segments: &[String]) -> Vec<u8> {
 pub fn document_key(path: &DocumentPath) -> Vec<u8> {
     segments_key(path.segments())
 }
+pub(crate) fn document_key_len(path: &DocumentPath) -> usize {
+    path.segments()
+        .iter()
+        .map(|segment| segment.len() + 1)
+        .sum()
+}
 pub fn document_path(key: &[u8]) -> Result<DocumentPath> {
     if key.len() > super::MAX_KEY_BYTES || key.last() != Some(&0) {
         return Err(corrupt("invalid ordered path"));

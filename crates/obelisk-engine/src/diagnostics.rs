@@ -21,8 +21,12 @@ pub enum ObjectKind {
     Outcome,
     Record,
     Segment,
+    DefinitionObject,
+    IndexDescriptor,
+    Projection,
     Unknown,
 }
+const OBJECT_KINDS: usize = ObjectKind::Unknown as usize + 1;
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ObjectStats {
     pub reads: u64,
@@ -44,7 +48,7 @@ struct Counters {
 #[derive(Debug)]
 pub struct InstrumentedMetadata {
     inner: Arc<dyn Storage>,
-    counts: [Counters; 10],
+    counts: [Counters; OBJECT_KINDS],
 }
 fn kind(bytes: &[u8]) -> ObjectKind {
     if bytes.len() < 43 || &bytes[..4] != b"OBLS" {
@@ -55,6 +59,9 @@ fn kind(bytes: &[u8]) -> ObjectKind {
         3 => ObjectKind::Segment,
         4 => ObjectKind::Record,
         6 => ObjectKind::Outcome,
+        7 => ObjectKind::DefinitionObject,
+        8 => ObjectKind::IndexDescriptor,
+        10 => ObjectKind::Projection,
         5 => match bytes.get(43) {
             Some(1) => ObjectKind::Documents,
             Some(2) => ObjectKind::Requests,

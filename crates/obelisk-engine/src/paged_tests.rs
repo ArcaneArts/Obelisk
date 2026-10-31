@@ -34,7 +34,7 @@ async fn db(store: Arc<dyn Storage>) -> Engine {
 async fn equivalent_rewrite(
     snapshot: &Snapshot,
 ) -> (
-    metadata::Root,
+    metadata::lifecycle::RootV3,
     Vec<(ObjectId, bytes::Bytes)>,
     metadata::Budget,
 ) {
@@ -47,17 +47,17 @@ async fn equivalent_rewrite(
         (
             Family::Documents,
             snapshot.manifest.documents.as_ref(),
-            &mut root.documents,
+            &mut root.data.documents,
         ),
         (
             Family::Requests,
             snapshot.manifest.requests.as_ref(),
-            &mut root.requests,
+            &mut root.data.requests,
         ),
         (
             Family::Membership,
             snapshot.manifest.membership.as_ref(),
-            &mut root.membership,
+            &mut root.data.membership,
         ),
     ] {
         let rows = metadata::range(
@@ -323,10 +323,10 @@ async fn metadata_only_publication_preserves_revisions_receipts_and_historical_r
     let historical = reopened.snapshot_at(old.reference()).await.unwrap();
     assert_eq!(all_entries(&historical, false).await, expected);
     assert!(historical.get(&path("new")).await.unwrap().is_none());
-    let bytes = metadata::encode_head(&current.reference).unwrap();
+    let bytes = metadata::lifecycle::encode_head_v3(&current.reference).unwrap();
     assert!(matches!(
         format::decode_head(&bytes),
-        Err(Error::UnsupportedVersion(2))
+        Err(Error::UnsupportedVersion(3))
     ));
 }
 

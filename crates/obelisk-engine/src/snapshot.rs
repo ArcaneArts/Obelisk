@@ -1,6 +1,7 @@
+use crate::metadata::lifecycle::{self, RootV3 as Root, TaggedOutcome};
 use crate::{
     Error, ResourceLimits, Result, corrupt, format,
-    metadata::{self, Budget, Family, HeadRef, ObjectRef, Root},
+    metadata::{self, Budget, Family, HeadRef, ObjectRef},
 };
 use obelisk_storage::{ObjectId, Storage, VersionToken};
 use obelisk_types::*;
@@ -9,6 +10,7 @@ use std::{sync::Arc, time::Duration};
 pub struct EngineOptions {
     pub max_attempts: usize,
     pub resources: ResourceLimits,
+    pub indexes: IndexLimits,
     pub base_backoff: Duration,
     pub max_backoff: Duration,
 }
@@ -17,6 +19,7 @@ impl Default for EngineOptions {
         Self {
             max_attempts: 64,
             resources: ResourceLimits::default(),
+            indexes: IndexLimits::default(),
             base_backoff: Duration::from_millis(1),
             max_backoff: Duration::from_millis(50),
         }
@@ -58,6 +61,7 @@ pub struct Snapshot {
     pub(crate) version: VersionToken,
     pub(crate) reference: HeadRef,
     pub(crate) resources: ResourceLimits,
+    pub(crate) indexes: IndexLimits,
 }
 impl Engine {
     pub async fn open(store: Arc<dyn Storage>, options: EngineOptions) -> Result<Self> {
@@ -69,30 +73,32 @@ impl Engine {
                 return Ok(engine);
             }
             let root = Root {
-                database_id: DatabaseId::new(uuid::Uuid::new_v4().to_string())?,
-                commit_id: CommitId::new(uuid::Uuid::new_v4().to_string())?,
-                sequence: 0,
-                documents: None,
-                requests: None,
-                membership: None,
+                data: metadata::Root {
+                    database_id: DatabaseId::new(uuid::Uuid::new_v4().to_string())?,
+                    commit_id: CommitId::new(uuid::Uuid::new_v4().to_string())?,
+                    sequence: 0,
+                    documents: None,
+                    requests: None,
+                    membership: None,
+                },
+                catalog: None,
+                index_count: 0,
             };
-            let bytes = metadata::encode_root(&root)?;
+            let bytes = lifecycle::encode_root_v3(&root)?;
             let mut budget = engine.options.resources.budget();
             budget.charge_decoded(bytes.len() * 2 + 512)?;
             metadata::charge(&mut budget.prepared, bytes.len(), "prepared root bytes")?;
             let id = ObjectId::random();
             let head = HeadRef {
-                database_id: root.database_id,
-                commit_id: root.commit_id,
+                database_id: root.database_id.clone(),
+                commit_id: root.commit_id.clone(),
                 sequence: 0,
                 root: ObjectRef::new(id, &bytes),
             };
+            let head = lifecycle::encode_head_v3(&head)?;
+            engine.validate_root_reader(&head, &bytes)?;
             engine.store.create(id, bytes.into()).await?;
-            match engine
-                .store
-                .compare_exchange_head(None, metadata::encode_head(&head)?.into())
-                .await
-            {
+            match engine.store.compare_exchange_head(None, head.into()).await {
                 Ok(_) => return Ok(engine),
                 Err(obelisk_storage::Error::Conflict) => engine.options.backoff(attempt).await,
                 Err(error) => {
@@ -116,7 +122,7 @@ impl Engine {
             .read_head()
             .await?
             .ok_or_else(|| corrupt("database head disappeared"))?;
-        let reference = metadata::decode_head(&head.bytes)?;
+        let reference = lifecycle::decode_head_v3(&head.bytes, &mut budget.decoded)?;
         self.load_snapshot(reference, head.version, budget).await
     }
     pub async fn snapshot_at(&self, reference: SnapshotReference) -> Result<Snapshot> {
@@ -139,7 +145,7 @@ impl Engine {
             .root
             .read(self.store.as_ref(), metadata::MAX_ROOT_BYTES, budget)
             .await?;
-        let manifest = metadata::decode_root(&bytes)?;
+        let manifest = lifecycle::decode_root_v3(&bytes, &mut budget.decoded)?;
         if manifest.database_id != reference.database_id
             || manifest.commit_id != reference.commit_id
             || manifest.sequence != reference.sequence
@@ -152,12 +158,29 @@ impl Engine {
             version,
             reference,
             resources: self.options.resources.clone(),
+            indexes: self.options.indexes,
         })
     }
     pub async fn get(&self, path: &DocumentPath) -> Result<Option<VersionedDocument>> {
         let mut budget = self.options.resources.budget();
         let snapshot = self.snapshot_with_budget(&mut budget).await?;
         snapshot.get_with_budget(path, &mut budget).await
+    }
+    // Preparation budgets and one snapshot read have different lifetimes. Prove
+    // that the resulting authority fits a fresh reader before uploading anything.
+    fn validate_root_reader(&self, head: &[u8], root: &[u8]) -> Result<()> {
+        let mut reader = self.options.resources.budget();
+        let reference = lifecycle::decode_head_v3(head, &mut reader.decoded)?;
+        reader.charge_decoded(reference.root.len as usize * 2 + 512)?;
+        reader.charge_transfer(reference.root.len as usize)?;
+        let manifest = lifecycle::decode_root_v3(root, &mut reader.decoded)?;
+        if manifest.database_id != reference.database_id
+            || manifest.commit_id != reference.commit_id
+            || manifest.sequence != reference.sequence
+        {
+            return Err(corrupt("prepared head/root identity mismatch"));
+        }
+        Ok(())
     }
     /// Shared internal publication path, including metadata-only changes.
     pub(crate) async fn publish_root(
@@ -178,7 +201,7 @@ impl Engine {
         {
             return Err(corrupt("invalid prepared publication identity"));
         }
-        let bytes = metadata::encode_root(root)?;
+        let bytes = lifecycle::encode_root_v3(root)?;
         metadata::charge(&mut budget.prepared, bytes.len(), "prepared root bytes")?;
         budget.charge_decoded(bytes.len() * 2 + 512)?;
         let object = ObjectId::random();
@@ -188,7 +211,8 @@ impl Engine {
             sequence: root.sequence,
             root: ObjectRef::new(object, &bytes),
         };
-        let head = metadata::encode_head(&reference)?;
+        let head = lifecycle::encode_head_v3(&reference)?;
+        self.validate_root_reader(&head, &bytes)?;
         for (id, bytes) in objects {
             self.store.create(id, bytes).await?;
         }
@@ -294,16 +318,27 @@ impl Snapshot {
         reference: &metadata::OutcomeRef,
         budget: &mut Budget,
     ) -> Result<format::RequestRecord> {
+        match self.request_outcome(id, reference, budget).await? {
+            TaggedOutcome::Document(record) => Ok(record),
+            TaggedOutcome::Index { .. } => Err(Error::RequestKindMismatch(id.clone())),
+        }
+    }
+    pub(crate) async fn request_outcome(
+        &self,
+        id: &RequestId,
+        reference: &metadata::OutcomeRef,
+        budget: &mut Budget,
+    ) -> Result<TaggedOutcome> {
         budget.charge_decoded(reference.blob.len as usize)?;
         let bytes = reference
             .blob
             .read(self.store.as_ref(), metadata::MAX_OUTCOME_BYTES, budget)
             .await?;
-        let record = metadata::decode_outcome_budget(&bytes, &mut budget.decoded)?;
-        if record.fingerprint != reference.fingerprint
-            || record.receipt.database_id != self.manifest.database_id
-            || &record.receipt.request_id != id
-            || record.receipt.sequence > self.sequence()
+        let record = lifecycle::decode_tagged_outcome(&bytes, &mut budget.decoded)?;
+        if record.fingerprint() != &reference.fingerprint
+            || record.publication().database_id != self.manifest.database_id
+            || &record.publication().request_id != id
+            || record.publication().sequence > self.sequence()
         {
             return Err(corrupt("invalid persisted request identity"));
         }

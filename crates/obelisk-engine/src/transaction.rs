@@ -1,6 +1,8 @@
 use crate::{
     Engine, Error, Result, Snapshot, corrupt,
     format::{self, Location, RequestRecord},
+    index_maintenance::{self, DocumentChanges},
+    metadata::lifecycle::{self, TaggedOutcome},
     metadata::{self, Budget, Family, ObjectRef, OutcomeRef},
 };
 use obelisk_storage::ObjectId;
@@ -45,6 +47,7 @@ impl Engine {
             {
                 return Ok(receipt);
             }
+            let indexes = snapshot.catalog(&mut budget).await?;
             for condition in transaction.conditions() {
                 let location = snapshot.location(&condition.path, &mut budget).await?;
                 check(
@@ -54,6 +57,7 @@ impl Engine {
                 )?;
             }
             let mut previous = BTreeMap::new();
+            let mut before = BTreeMap::new();
             for mutation in transaction.mutations() {
                 let location = snapshot.location(&mutation.path, &mut budget).await?;
                 check(
@@ -61,7 +65,22 @@ impl Engine {
                     &mutation.condition,
                     location.as_ref().map(|l| &l.revision),
                 )?;
-                previous.insert(mutation.path.clone(), location.is_some());
+                budget.charge_decoded(512 + 3 * metadata::document_key_len(&mutation.path))?;
+                if matches!(mutation.kind, MutationKind::Patch(_))
+                    || indexes.iter().any(|index| {
+                        index.maintained() && index.definition.scope().contains(&mutation.path)
+                    })
+                {
+                    let document = if let Some(location) = location.as_ref() {
+                        snapshot
+                            .read_location(&mutation.path, location.clone(), &mut budget)
+                            .await?
+                    } else {
+                        None
+                    };
+                    before.insert(mutation.path.clone(), document);
+                }
+                previous.insert(mutation.path.clone(), location);
             }
             let mut records = BTreeMap::new();
             let mut prepared_size = 4 + format::HEADER_BYTES;
@@ -73,9 +92,9 @@ impl Engine {
                     }
                     MutationKind::Delete => None,
                     MutationKind::Patch(patch) => {
-                        let previous = snapshot
-                            .get_with_budget(&mutation.path, &mut budget)
-                            .await?
+                        let previous = before
+                            .get(&mutation.path)
+                            .and_then(Option::as_ref)
                             .ok_or_else(|| Error::MissingDocument(mutation.path.clone()))?;
                         budget.charge_decoded(
                             format::document_allocation(&previous.document)
@@ -122,18 +141,23 @@ impl Engine {
             let mut documents = metadata::Changes::new();
             let mut membership = metadata::Changes::new();
             let mut revisions = BTreeMap::new();
+            let mut locations = BTreeMap::new();
             for (path, document) in &records {
                 let value = if document.is_some() {
-                    Some(metadata::encode_location(&Location {
+                    let location = Location {
                         object: segment_id,
                         range: ranges[path].clone(),
                         revision: revision.clone(),
-                    })?)
+                    };
+                    budget.charge_decoded(512 + metadata::document_key_len(path))?;
+                    let value = metadata::encode_location(&location)?;
+                    locations.insert(path.clone(), location);
+                    Some(value)
                 } else {
                     None
                 };
                 documents.insert(metadata::document_key(path), value);
-                if previous[path] != document.is_some() {
+                if previous[path].is_some() != document.is_some() {
                     membership.insert(
                         metadata::membership_key(path),
                         document.as_ref().map(|_| Vec::new()),
@@ -158,10 +182,11 @@ impl Engine {
                     })
                     .sum::<usize>();
             budget.charge_decoded(receipt_memory * 3)?;
-            let outcome = metadata::encode_outcome(&RequestRecord {
-                fingerprint,
-                receipt: receipt.clone(),
-            })?;
+            let outcome =
+                lifecycle::encode_tagged_outcome(&TaggedOutcome::Document(RequestRecord {
+                    fingerprint,
+                    receipt: receipt.clone(),
+                }))?;
             budget.charge_decoded(outcome.len() * 2)?;
             metadata::charge(
                 &mut budget.prepared,
@@ -208,6 +233,20 @@ impl Engine {
             objects.extend(docs.objects);
             objects.extend(members.objects);
             objects.extend(requests.objects);
+            index_maintenance::maintain(
+                &snapshot,
+                &mut root,
+                indexes,
+                DocumentChanges {
+                    before: &before,
+                    previous_locations: &previous,
+                    after: &records,
+                    locations: &locations,
+                },
+                &mut objects,
+                &mut budget,
+            )
+            .await?;
             match self
                 .publish_root(
                     &snapshot,
