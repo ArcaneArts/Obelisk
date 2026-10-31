@@ -1,0 +1,96 @@
+    Blocking waiting for file lock on artifact directory
+   Compiling obelisk-engine v0.1.0 (/Users/cyberpwn/development/workspace/ArcaneArts/Cantrip/.cantrip/dev/worker/worktrees/cddf0584a05ebfd20b23/obelisk-scalar-index-qualification-95479fb410a2/crates/obelisk-engine)
+   Compiling obelisk v0.1.0 (/Users/cyberpwn/development/workspace/ArcaneArts/Cantrip/.cantrip/dev/worker/worktrees/cddf0584a05ebfd20b23/obelisk-scalar-index-qualification-95479fb410a2/crates/obelisk)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.96s
+     Running tests/multiprocess.rs (target/debug/deps/multiprocess-05cf8e0ca604805c)
+
+running 1 test
+multiprocess: 6 writers, 24 acknowledged atomic pairs, 176 pinned consistency scans
+multiprocess: 6 identical requests committed once
+multiprocess: 4 contending writers preserved 16 conditional increments
+multiprocess hierarchy: 4 writers, 36 committed outcomes, 323 pinned scans; parent deletion and pinned page resumption preserved
+indexed multiprocess index-build: 4 builders, 4 writers/16 atomic pair mutations, 146 pinned reference scans; current/covered results coherent
+indexed multiprocess index-rebuild: 4 builders, 4 writers/16 atomic pair mutations, 60 pinned reference scans; current/covered results coherent
+indexed multiprocess stale rebuild: prepared chunk lost CAS to independent drop/recreation; replacement progress stayed untouched
+indexed multiprocess retained pagination: original cursor survived independent writes, rebuild, drop and reopen
+indexed process kill: index-create-crash before-definition; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-create-crash after-definition; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-create-crash before-descriptor; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-create-crash after-descriptor; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-create-crash after-catalog-page; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-create-crash after-manifest; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-create-crash before-publication; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-create-crash after-publication; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-create-crash after-ack; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-advance-crash before-projection; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-advance-crash after-projection; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-advance-crash before-scalar-page; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-advance-crash after-scalar-page; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-advance-crash before-descriptor; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-advance-crash after-descriptor; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-advance-crash before-catalog-page; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-advance-crash after-catalog-page; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-advance-crash after-outcome; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-advance-crash before-manifest; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-advance-crash after-manifest; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-advance-crash before-publication; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-advance-crash after-publication; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-advance-crash after-ack; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-activate-crash after-projection; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-activate-crash after-scalar-page; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+test folder_multiprocess_and_crash_recovery has been running for over 60 seconds
+indexed process kill: index-activate-crash after-descriptor; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-activate-crash after-manifest; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-activate-crash before-publication; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-activate-crash after-publication; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-activate-crash after-ack; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-rebuild-crash after-descriptor; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-rebuild-crash after-catalog-page; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-rebuild-crash after-manifest; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-rebuild-crash after-publication; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-rebuild-crash after-ack; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-drop-crash after-request-page; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-drop-crash after-manifest; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-drop-crash before-publication; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-drop-crash after-publication; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-drop-crash after-ack; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-write-crash after-projection; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-write-crash after-scalar-page; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-write-crash after-descriptor; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-write-crash after-document-page; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-write-crash after-membership-page; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-write-crash after-catalog-page; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-write-crash after-manifest; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-write-crash before-publication; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-write-crash after-publication; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kill: index-write-crash after-ack; marker reached, coherent state, original receipt, resumable progress and retained snapshot
+indexed process kills: 50 explicitly reached boundaries; these are client process kills, not storage-server or hardware power loss
+process kill: after-head-read; preserved seed, atomic visibility, retry receipt
+process kill: after-snapshot-read; preserved seed, atomic visibility, retry receipt
+process kill: before-segment; preserved seed, atomic visibility, retry receipt
+process kill: after-segment; preserved seed, atomic visibility, retry receipt
+process kill: before-manifest; preserved seed, atomic visibility, retry receipt
+process kill: after-manifest; preserved seed, atomic visibility, retry receipt
+process kill: before-page; preserved seed, atomic visibility, retry receipt
+process kill: after-page; preserved seed, atomic visibility, retry receipt
+process kill: before-document-page; preserved seed, atomic visibility, retry receipt
+process kill: after-document-page; preserved seed, atomic visibility, retry receipt
+process kill: before-request-page; preserved seed, atomic visibility, retry receipt
+process kill: after-request-page; preserved seed, atomic visibility, retry receipt
+process kill: before-membership-page; preserved seed, atomic visibility, retry receipt
+process kill: after-membership-page; preserved seed, atomic visibility, retry receipt
+process kill: split-after-document-page; preserved seed, atomic visibility, retry receipt
+process kill: split-after-membership-page; preserved seed, atomic visibility, retry receipt
+process kill: split-after-request-page; preserved seed, atomic visibility, retry receipt
+process kill: split-after-manifest; preserved seed, atomic visibility, retry receipt
+process kill: split-after-publication; preserved seed, atomic visibility, retry receipt
+process kill: before-outcome; preserved seed, atomic visibility, retry receipt
+process kill: after-outcome; preserved seed, atomic visibility, retry receipt
+process kill: before-publication; preserved seed, atomic visibility, retry receipt
+process kill: after-publication; preserved seed, atomic visibility, retry receipt
+process kill: after-ack; preserved seed, atomic visibility, retry receipt
+process kill: OS publication lock released on writer death
+test folder_multiprocess_and_crash_recovery ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 106.03s
+

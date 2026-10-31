@@ -87,6 +87,9 @@ impl Backend {
         }
     }
 }
+#[path = "multiprocess/indexed.rs"]
+mod indexed;
+
 fn options() -> DatabaseOptions {
     DatabaseOptions {
         max_attempts: 128,
@@ -180,12 +183,18 @@ impl Storage for FaultStore {
             Some(2) => ("before-manifest", "after-manifest"),
             Some(5) => ("before-page", "after-page"),
             Some(6) => ("before-outcome", "after-outcome"),
+            Some(7) => ("before-definition", "after-definition"),
+            Some(8) => ("before-descriptor", "after-descriptor"),
+            Some(10) => ("before-projection", "after-projection"),
+            // Kind 9 entries are embedded in scalar pages, not standalone uploads.
             _ => panic!("unexpected prepared object kind"),
         };
         let family = match bytes.get(43) {
             Some(1) => ("before-document-page", "after-document-page"),
             Some(2) => ("before-request-page", "after-request-page"),
             Some(3) => ("before-membership-page", "after-membership-page"),
+            Some(4) => ("before-catalog-page", "after-catalog-page"),
+            Some(5) => ("before-scalar-page", "after-scalar-page"),
             _ => ("", ""),
         };
         let page = bytes.get(4) == Some(&5);
@@ -250,6 +259,10 @@ fn worker_process() {
         let db = Database::open_with_storage(fault.clone(), options())
             .await
             .unwrap();
+        if mode.starts_with("index-") {
+            indexed::worker(&mode, &db, &fault, writer).await;
+            return;
+        }
         if mode == "crash" {
             #[cfg(all(unix, feature = "folder"))]
             if stage == "holding-folder-lock" {
@@ -690,6 +703,7 @@ async fn suite(backend: Backend, signals: &Path) {
     eprintln!("multiprocess: 4 contending writers preserved 16 conditional increments");
 
     hierarchy_suite(&backend, signals).await;
+    indexed::suite(&backend, signals).await;
 
     for stage in [
         "after-head-read",

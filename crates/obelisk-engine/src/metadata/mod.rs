@@ -1,6 +1,8 @@
 //! Immutable ordered metadata primitives for the paged engine. Tree operations
 //! never publish HEAD or reclaim historical objects.
 mod codec;
+#[cfg(all(test, unix))]
+pub(crate) use codec::Node;
 mod index;
 pub(crate) use index::decode_index_definition_budget;
 mod key;

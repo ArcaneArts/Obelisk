@@ -568,3 +568,46 @@ remain two actual-AWS gates, two emulator gates and the release large-capacity g
 none ran in this milestone. Existing folder multiprocess/hierarchy/crash tests
 passed in the workspace run. Expanded indexed subprocess and release measurements
 remain cycle 18. No new AWS, emulator or hardware-power-loss evidence is claimed.
+
+
+## Scalar indexes cycle 18 qualification in progress
+
+Milestone 17 independently merged as PR #12; all Linux, macOS and Windows CI jobs
+were observed passing. Its worktree and local/remote-tracking branches were removed;
+primary's unrelated commit remains preserved. Cycle 18 uses a fresh isolated branch
+from that upstream merge. Production engine/storage semantics are unchanged by the
+current qualification changes.
+
+The shared backend subprocess harness now classifies definition, descriptor,
+projection, catalog and scalar-page uploads. Four builders and four writers run
+coordinated initial-build and rebuild phases, comparing full/covered indexed pages
+with documents from the same snapshot. Another process drops/recreates an index
+while an old rebuild chunk is prepared before CAS; the stale chunk fails without
+advancing the replacement. Retained native pagination survives independent writes,
+rebuild, drop and engine reopen. Fifty new indexed crash markers cover registration,
+chunks, activation, rebuild, drop and writes with both generations. Every intended
+marker was reached; state, original receipts and resumable progress remain coherent.
+The 24 existing publication boundaries and OS-lock-death scenario also pass.
+
+Structural tests prove root-only opening with indexes, selective bounded query work,
+covered-read avoidance and unchanged unrelated scalar child references after a local
+edit. A maximum-index safety case atomically maintains 16 active definitions plus a
+building replacement, rejects a 17th definition before uploads, and verifies every
+active result and the replacement's eventual activation.
+
+Local checks: **107 workspace tests passed, five ignored**. All six required checks,
+folder-only/S3-only example builds and focused structural checks passed. The release
+capacity gate ran separately and passed in 193.67 seconds: 100,000 live documents,
+91,200,000 live location key/value bytes, a 386-byte v3 root, five location pages for
+one update, preserved original receipts and retained reads. The process suite passed
+in 106.03 seconds. Raw capacity, process and structure evidence is under
+`docs/measurements/scalar-index-2026-10-31-*.txt`.
+
+The complete release scalar matrix is still running and is not yet acceptance
+evidence for all sizes. The new `index_scaling` example defaults to 100/1,000/10,000/
+100,000 documents, zero/one/three active indexes and a building replacement. It
+measures bounded progress, startup, selective key/covered/full reads, serial and
+contended updates, logical IO, and successful/abandoned uploads. Do not mark cycle
+18 or the Task complete until the full matrix, final audit and independent PR merge
+are finished. Actual-AWS bucket/prefix and custom emulator endpoint configuration
+were absent; those external gates remain open. Hardware power loss is unverified.

@@ -288,7 +288,7 @@ async fn paged_capacity_exceeds_the_old_manifest_limit() {
     let diagnostics = Arc::new(InstrumentedMetadata::new(store));
     let reopened = db(diagnostics.clone()).await;
     assert_eq!(diagnostics.stats(ObjectKind::Root).reads, 1);
-    assert_eq!(diagnostics.stats(ObjectKind::Root).bytes_read, 381);
+    assert_eq!(diagnostics.stats(ObjectKind::Root).bytes_read, 386);
     assert_eq!(diagnostics.stats(ObjectKind::Documents).reads, 0);
     let first_path = path(&format!("capacity/000000{padding}"));
     assert!(reopened.get(&first_path).await.unwrap().is_some());
@@ -326,6 +326,6 @@ async fn paged_capacity_exceeds_the_old_manifest_limit() {
         first.unwrap()
     );
     eprintln!(
-        "capacity verified: {count} live documents; {live_bytes} live location key/value bytes; 381 root bytes; {pages} location pages for one update; original receipt and historical snapshot retained"
+        "capacity verified: {count} live documents; {live_bytes} live location key/value bytes; 386 root bytes; {pages} location pages for one update; original receipt and historical snapshot retained"
     );
 }
