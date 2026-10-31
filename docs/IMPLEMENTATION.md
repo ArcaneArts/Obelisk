@@ -18,8 +18,15 @@ Each completed cycle is committed separately. See git history for exact commits.
 - [x] 14. Pagination, multiprocess/crash and scaling qualification.
 - [x] 15. Validated scalar-index definitions and ordered metadata primitives.
 - [ ] 16. Root-integrated resumable index build, reconciliation and activation.
+  - [x] 16A. Additive lifecycle types and bounded v3/entry/projection/outcome codecs.
+  - [ ] 16B. Authoritative v3 integration, lifecycle APIs and mandatory writer maintenance.
 - [ ] 17. Atomic transaction maintenance and bounded indexed query APIs.
 - [ ] 18. Index concurrency, interruption and scaling qualification.
+
+The scalar-index Task spans 16A, 16B, 17 and 18 as independently merged milestones.
+Cycle 16 remains incomplete until 16B; its activation must ship with writer
+maintenance rather than leave an active index stale until cycle 17. Later roadmap
+features (compaction, reclamation, backup/restore and transport) are separate Tasks.
 
 ## Evidence
 
@@ -424,3 +431,36 @@ credentials and a dedicated bucket/prefix; emulator results do not close overall
 S3 acceptance. Scalar index lifecycle, compaction, reclamation and transport remain
 outside the query-foundations Task. HEAD contention and retained-storage growth
 remain documented limitations.
+
+## Scalar indexes cycle 16A evidence
+
+Public types validate generation handles, coherent examined-count/source-path
+progress, live-index limits and build options. Engine-owned additive codecs cover
+v3 HEAD/root, catalog descriptors, generation-bound entry values, out-of-line
+typed covered projections and tagged outcomes. Management fingerprints bind their
+operation domain, canonical definition or handle, generation and work limits.
+Original document fingerprints/receipts and their nonempty revision invariant are
+unchanged. Production snapshots and transactions still use v2; no lifecycle or
+indexed-query execution is exposed yet.
+
+Eight new engine tests and one type test cover v2/v3 version rejection, root
+capabilities/counts, build/rebuild/failure descriptor states, cross-object scope
+checks, maximum paths/identities, projections beyond leaf size with binary and
+typed nested/empty lists, receipts beyond page size, management operation/state
+validation, fingerprint binding, aggregate/low allocation budgets, hostile lengths,
+checksum corruption and arbitrary validly checksummed payloads. These are pure
+codec/type tests, not independent-process or actual-S3 index qualification.
+
+Local validation on 2026-10-31: **81 workspace tests passed, five ignored**.
+Formatting, strict all-feature workspace Clippy, folder-only and S3-only facade
+Clippy, no-default-feature workspace checking, and diff checks passed. The ignored
+tests remain two externally configured actual-AWS gates, two emulator gates and
+the explicit large capacity workload; none of those opt-in workloads ran in 16A.
+No performance or hardware-power-loss claim is made.
+
+Cycle 16 stays open. Milestone 16B must select v3 only for fresh folders/prefixes,
+integrate catalog/status and idempotent lifecycle APIs, resumable reconciliation
+and activation, and maintain both building and active generations atomically on
+every document write. Cycle 17 supplies indexed queries and examples; cycle 18
+qualifies independent processes, interruptions and scale. Actual AWS acceptance
+remains open without a dedicated external bucket/prefix and credential provider.

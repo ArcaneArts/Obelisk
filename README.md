@@ -108,6 +108,13 @@ next implementation block, but they are deliberately not attached to v2 roots ye
 No index is created, maintained, or query-visible in this cycle; ordinary database
 behavior and compatibility are unchanged.
 
+Cycle 16A adds validated generation handles, progress and bounded build options,
+plus engine-owned lifecycle/entry/projection/tagged-outcome codecs. These remain
+additive primitives: production still opens and writes v2. Lifecycle APIs and the
+fresh-folder/prefix v3 switch belong to 16B, which must also maintain building and
+active generations on every document write. Indexed queries follow in cycle 17;
+independent-process, crash and scaling qualification follows in cycle 18.
+
 ## Bulk reads and hierarchy discovery
 
 `db.get_many(&["a", "missing", "a"]).await?` preserves input order, duplicates,

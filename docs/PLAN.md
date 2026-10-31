@@ -531,9 +531,30 @@ adds a resumable online lifecycle, atomic transaction maintenance and bounded
 indexed queries, followed by independent-process, interruption and scaling
 qualification. A query may use only an active index published in its snapshot.
 
-Deliver four independently merged cycles: definition/key/page primitives;
-root-integrated build, reconciliation and activation; transactional maintenance
-and indexed query APIs; concurrency/crash and scaling qualification. The block
+Cycle 15 delivered definition/key/page primitives. Continue with independently
+merged milestones 16A (additive lifecycle/value codecs), 16B (root-integrated build,
+reconciliation, activation and mandatory writer maintenance), 17 (indexed query
+APIs), and 18 (concurrency/crash and scaling qualification). Activation cannot
+precede writer maintenance, even before public indexed queries are exposed. The block
 starts with exact string, integer, double and boolean components. Binary and list
 indexes, deliberate scans, compaction, reclamation, portable cursor tokens and a
 wire protocol remain outside it.
+
+The approved v3 integration uses a paged catalog of bounded lifecycle descriptors,
+one scalar-entry tree per generation and separate immutable covered projections.
+An online candidate enumerates a pinned source snapshot while foreground writers
+maintain both candidate and active generations. Each chunk reads current documents
+and publishes entries plus its last examined source path through HEAD CAS. At
+source exhaustion, all processed source paths and paths mutated since registration
+cover the current eligible documents; activation is one atomic publication.
+Conflicts recompute from current state. Rebuilds keep the old active generation
+available, and dropping removes current visibility without reclaiming history.
+
+Start with 16 live definitions and one candidate build per database. Build calls
+default to 100 examined documents, at most 256, and 16 MiB source-payload bytes;
+existing aggregate resource budgets also apply. Queries require an exact typed
+scope/index shape: equality prefix, an optional range on the next component and
+matching remaining ordering. Incomplete indexes and implicit document scans are
+never query plans. Native cursors pin the snapshot and generation. Authoritative
+v3 databases will use fresh folders/prefixes with explicit rejection of v2, not
+automatic migration. The additive 16A codecs do not switch the production writer.

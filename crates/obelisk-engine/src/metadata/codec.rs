@@ -101,7 +101,7 @@ impl PageRef {
         Ok(value)
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Root {
     pub database_id: DatabaseId,
     pub commit_id: CommitId,

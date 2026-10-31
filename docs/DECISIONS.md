@@ -199,3 +199,45 @@ additive primitives cycle does not add either family to the production root, alt
 HEAD/root v2, create indexes, maintain entries, encode covered projections, or make
 an index query-visible. Those behaviors require the later lifecycle and transaction
 cycles, so existing databases and writes are unchanged.
+
+## Scalar lifecycle primitives (16A)
+
+Introduce the next lifecycle formats additively before selecting them in the
+production engine. `metadata::lifecycle::RootV3` wraps the existing root data with
+an optional catalog tree and a live-index count. HEAD/root v3 require membership
+and scalar-maintenance capabilities. Production still uses v2 in 16A; 16B will
+reject v2 before preparation and require fresh folders/prefixes for v3. No silent
+migration, reset or reclamation is permitted.
+
+Catalog leaves will reference checksummed lifecycle descriptors (at most 16 KiB),
+not inline definitions plus progress. A descriptor identifies its database/index,
+references an immutable kind-7 definition, and holds an active generation, a
+candidate, or both. Active and candidate generation identities must differ. A
+candidate pins a committed v3 base head and stores examined-count/last-source-path
+progress and an optional bounded semantic failure. Definition scope and catalog
+identity are cross-validated when their separate objects are available. Committed
+origin of a snapshot reference remains the engine's responsibility in 16B.
+
+Scalar-entry values carry generation, document location/revision and an optional
+covered-projection reference. Covered projections are separate immutable objects
+with generation/path/revision identity and a typed document subset. This supports
+valid binary and list covered values beyond a metadata leaf without relaxing
+leaf bounds. Projection objects are bounded to the document maximum plus explicit
+path/identity/envelope overhead. Descriptor, entry and projection envelopes are
+independently versioned; decoders consume an aggregate caller allocation budget.
+
+Public generation handles, progress and work options remain persistence-independent.
+Initial bounds are 16 live definitions and one candidate build per database;
+build calls default to 100 source documents and 16 MiB source bytes, with at most
+256 documents and lower validated options. These types are not wired into engine
+execution until 16B.
+
+Management fingerprints have an explicit versioned domain and bind operation,
+definition/handle, generation and build limits. Tagged outcome v2 distinguishes
+unchanged original document receipts from management receipts with no document
+revisions. Original document v1 fingerprints/receipts and the legacy nonempty
+document-receipt check remain unchanged. Management outcomes retain operation,
+handle, publication identity, resulting state/progress and bounded failure.
+Creating/rebuilding yields Building; advancing may yield Building, Active or
+Failed; dropping yields Dropped. Namespace deduplication and wrong-kind resolution
+will be enforced by lifecycle integration, not by these pure codecs alone.

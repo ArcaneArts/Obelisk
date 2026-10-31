@@ -21,7 +21,7 @@ pub struct HeadRef {
     pub manifest: ObjectId,
     pub manifest_hash: [u8; 32],
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Location {
     pub object: ObjectId,
     pub range: Range<u64>,
@@ -36,7 +36,7 @@ pub struct Manifest {
     pub documents: BTreeMap<DocumentPath, Location>,
     pub requests: BTreeMap<RequestId, RequestRecord>,
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RequestRecord {
     pub fingerprint: [u8; 32],
     pub receipt: CommitReceipt,
@@ -175,7 +175,7 @@ impl<'a> Reader<'a> {
     pub(crate) fn remaining(&self) -> usize {
         self.budget
     }
-    fn charge(&mut self, n: usize) -> Result<()> {
+    pub(crate) fn charge(&mut self, n: usize) -> Result<()> {
         self.budget = self
             .budget
             .checked_sub(n)
@@ -230,7 +230,7 @@ impl<'a> Reader<'a> {
             .map(str::to_owned)
             .map_err(|_| corrupt("invalid UTF-8"))
     }
-    fn path(&mut self) -> Result<Vec<String>> {
+    pub(crate) fn path(&mut self) -> Result<Vec<String>> {
         let n = self.count(128, 64)?;
         let mut parts = Vec::with_capacity(n);
         for _ in 0..n {
@@ -280,7 +280,7 @@ impl<'a> Reader<'a> {
             _ => return Err(corrupt("unknown value tag")),
         })
     }
-    fn document(&mut self) -> Result<Document> {
+    pub(crate) fn document(&mut self) -> Result<Document> {
         let n = self.count(MAX_FIELDS, 256)?;
         let mut fields = Vec::with_capacity(n);
         for _ in 0..n {

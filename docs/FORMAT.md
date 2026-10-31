@@ -109,3 +109,54 @@ from the definition and reject bad tags, escapes, UTF-8, booleans, bounds and pa
 Scalar tuples are at most 4096 bytes; complete keys retain the existing 8704-byte
 limit. Prefix encodings and their exclusive byte successor support exact composite
 prefix ranges without weakening document-path tie-breaking.
+
+## Additive lifecycle formats (16A)
+
+These codecs are not yet selected by production snapshots or transactions, which
+continue using v2. All new object kinds retain the checksummed 43-byte envelope.
+Decoders validate exact length/version/kind and consume an explicit allocation
+budget. Encoder self-validation uses the existing 128 MiB decoder safety maximum.
+Neither encoding nor decoding publishes HEAD.
+
+- HEAD kind 1/version 3 has the same identity/sequence/root-reference fields as
+  v2, with an incompatible envelope version to prevent old writers opening it.
+- Root kind 2/version 3 contains database/commit/sequence, required capability
+  mask 3 (membership plus scalar maintenance), four optional page references in
+  document/request/membership/catalog order, then a u32 live-index count. Counts
+  are at most 16; zero count and absent catalog must agree. The root stays bounded
+  to 16 KiB. Catalog count versus actual leaves is an integration-time check.
+- Descriptor kind 8/version 1 is at most 16 KiB. Fields are database ID, index ID,
+  definition object reference (kind 7 bound), optional active generation/root,
+  and optional candidate. A generation/root is a bounded generation string and
+  optional scalar page reference. A candidate additionally contains a
+  length-prefixed v3 HEAD, progress and failure. At least one generation exists;
+  active and candidate generations differ and base database identity agrees.
+- Entry kind 9/version 1 fits the existing 8192-byte leaf-value limit. Fields
+  are generation, length-prefixed existing document-location bytes and an optional
+  covered-projection object reference. Location validation is unchanged.
+- Projection kind 10/version 1 contains generation, structured document path,
+  revision and the original typed document encoding. Its maximum is
+  `MAX_DOCUMENT_BYTES + 2 * MAX_PATH_BYTES + 2048`. It contains only selected
+  covered fields; absent fields remain absent. Definition/entry/projection
+  identity and selected-field checks belong to integration reads.
+
+Progress encodes u64 examined count, a presence byte and optional structured
+document path. Zero count is equivalent to an absent position. The source path
+is interpreted using the definition's hierarchy scope, not a filesystem path.
+Failure tag 0 means no failure; tag 1 carries the path of an oversized scalar key.
+
+Outcome kind 6/version 2 starts with operation-kind tag (0 document, 1 index),
+the 32-byte fingerprint and existing receipt fields. Document receipts retain
+their nonempty revision map and original revision/commit identity checks. Index
+receipts require an empty revision map, then encode index ID/generation, operation
+(0 create, 1 advance, 2 rebuild, 3 drop), state (0 building, 1 active, 2 failed,
+3 dropped), progress and failure. Publication sequence is nonzero. Failure is
+present exactly for Failed, and operation/state combinations are validated.
+Outcome objects retain the 2 MiB maximum. Shared-namespace outcome lookup and
+request-kind mismatch errors are integrated in 16B.
+
+Management fingerprints hash the bytes `ObeliskIndexOperation-v1` plus NUL,
+operation tag, and canonical arguments: create uses length-prefixed kind-7
+definition bytes; other operations use index ID/generation; advance also includes
+u32 document and source-byte limits. Request identity is excluded. Document
+transaction fingerprints are unchanged.
