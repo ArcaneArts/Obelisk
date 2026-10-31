@@ -1,7 +1,7 @@
 # Prototype persistent formats
 
-Fresh databases use v2 HEAD/root and paged metadata. The production engine rejects
-v1 databases without migration. The v1 section below documents unchanged document
+Fresh databases use v3 HEAD/root, a paged index catalog and maintained scalar
+generations. The production engine rejects v1/v2 databases without migration. The v1 section below documents unchanged document
 records/fingerprints and the former manifest layout for compatibility tests.
 
 ## Baseline format v1
@@ -50,8 +50,8 @@ the engine head with a UUID storage-version token; S3 uses its opaque ETag.
 
 The primitives in `obelisk-engine::metadata` define root manifest kind 2/version 2,
 page kind 5/version 1, and request-outcome kind 6/version 1. Envelopes keep the
-43-byte checksummed header. The engine writes only v2 databases. It rejects a v1
-HEAD before preparing objects for an existing database; older v1 readers reject a v2 HEAD.
+43-byte checksummed header. Cycles 12–16A wrote v2 databases and rejected v1. Current production uses v3 as
+described below; this historical codec remains for explicit compatibility tests.
 
 A root repeats database/commit identity and sequence, requires capability mask 1
 (parent membership maintained), then stores three optional page references in
@@ -110,10 +110,11 @@ Scalar tuples are at most 4096 bytes; complete keys retain the existing 8704-byt
 limit. Prefix encodings and their exclusive byte successor support exact composite
 prefix ranges without weakening document-path tie-breaking.
 
-## Additive lifecycle formats (16A)
+## Scalar lifecycle formats (v3; primitives 16A, integration 16B)
 
-These codecs are not yet selected by production snapshots or transactions, which
-continue using v2. All new object kinds retain the checksummed 43-byte envelope.
+Production snapshots and transactions now select these codecs. HEAD/root v2 and
+legacy outcome codecs remain explicit compatibility primitives, with no implicit
+upgrade path. All new object kinds retain the checksummed 43-byte envelope.
 Decoders validate exact length/version/kind and consume an explicit allocation
 budget. Encoder self-validation uses the existing 128 MiB decoder safety maximum.
 Neither encoding nor decoding publishes HEAD.
@@ -124,7 +125,8 @@ Neither encoding nor decoding publishes HEAD.
   mask 3 (membership plus scalar maintenance), four optional page references in
   document/request/membership/catalog order, then a u32 live-index count. Counts
   are at most 16; zero count and absent catalog must agree. The root stays bounded
-  to 16 KiB. Catalog count versus actual leaves is an integration-time check.
+  to 16 KiB. Catalog count versus actual leaves and the single building-candidate bound are
+  checked on catalog loading. Opening itself reads no catalog pages.
 - Descriptor kind 8/version 1 is at most 16 KiB. Fields are database ID, index ID,
   definition object reference (kind 7 bound), optional active generation/root,
   and optional candidate. A generation/root is a bounded generation string and
@@ -137,8 +139,9 @@ Neither encoding nor decoding publishes HEAD.
 - Projection kind 10/version 1 contains generation, structured document path,
   revision and the original typed document encoding. Its maximum is
   `MAX_DOCUMENT_BYTES + 2 * MAX_PATH_BYTES + 2048`. It contains only selected
-  covered fields; absent fields remain absent. Definition/entry/projection
-  identity and selected-field checks belong to integration reads.
+  covered fields; absent fields remain absent. Definitions are cross-checked against catalog identity/scope. Maintenance checks
+  entry generation, location/revision and projection presence. Query-time covered
+  field and projection identity validation is part of cycle 17.
 
 Progress encodes u64 examined count, a presence byte and optional structured
 document path. Zero count is equivalent to an absent position. The source path
@@ -152,11 +155,31 @@ receipts require an empty revision map, then encode index ID/generation, operati
 (0 create, 1 advance, 2 rebuild, 3 drop), state (0 building, 1 active, 2 failed,
 3 dropped), progress and failure. Publication sequence is nonzero. Failure is
 present exactly for Failed, and operation/state combinations are validated.
-Outcome objects retain the 2 MiB maximum. Shared-namespace outcome lookup and
-request-kind mismatch errors are integrated in 16B.
+Outcome objects retain the 2 MiB maximum. Shared-namespace lookup validates fingerprint, database, request identity and
+committed sequence; resolve methods report explicit request-kind mismatches.
 
 Management fingerprints hash the bytes `ObeliskIndexOperation-v1` plus NUL,
 operation tag, and canonical arguments: create uses length-prefixed kind-7
 definition bytes; other operations use index ID/generation; advance also includes
 u32 document and source-byte limits. Request identity is excluded. Document
 transaction fingerprints are unchanged.
+
+## V3 publication and online build state
+
+Index registration pins the current committed head in a candidate descriptor.
+That base sequence must precede the descriptor's containing snapshot. Chunks
+validate the base head/root identities, enumerate membership or location ranges,
+validate any saved position against the pinned source tree, then read current
+locations/documents from their publication snapshot. Source-byte limits stop
+before an unprocessed path. Progress is persisted only with the matching candidate
+pages; source exhaustion swaps the active root and removes the candidate in that
+same CAS publication. A semantic oversized-key failure retains the previous chunk's
+progress/tree and any active generation.
+
+Foreground transactions read old eligible documents and prepare exact old-key
+removals, current-value additions, covered projection objects, descriptor changes
+and catalog pages. Changed location/revision data is updated even when scalar
+components stay equal. All document/membership/index/outcome objects and the root
+are durable before HEAD CAS. Conflict retries reopen authoritative state and
+recompute these changes. Drop removes the current catalog entry/count, retaining
+all old references. No new object family introduces automatic deletion.

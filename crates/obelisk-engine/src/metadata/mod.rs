@@ -1,9 +1,10 @@
 //! Immutable ordered metadata primitives for the paged engine. Tree operations
 //! never publish HEAD or reclaim historical objects.
 mod codec;
-pub(crate) use codec::decode_outcome_budget;
 mod index;
+pub(crate) use index::decode_index_definition_budget;
 mod key;
+pub(crate) use key::document_key_len;
 pub mod lifecycle;
 mod tree;
 pub use codec::{

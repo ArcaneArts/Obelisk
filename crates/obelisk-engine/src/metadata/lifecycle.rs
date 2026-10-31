@@ -1,4 +1,4 @@
-//! Additive scalar lifecycle formats. Production still uses the v2 codecs.
+//! Versioned scalar lifecycle formats and bounded readers.
 use super::{HeadRef, MAX_ROOT_BYTES, MAX_VALUE_BYTES, ObjectRef, PageRef, Root};
 use crate::{
     Error, Result, corrupt,
@@ -18,6 +18,17 @@ pub struct RootV3 {
     pub data: Root,
     pub catalog: Option<PageRef>,
     pub index_count: usize,
+}
+impl std::ops::Deref for RootV3 {
+    type Target = Root;
+    fn deref(&self) -> &Root {
+        &self.data
+    }
+}
+impl std::ops::DerefMut for RootV3 {
+    fn deref_mut(&mut self) -> &mut Root {
+        &mut self.data
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,7 +92,7 @@ impl TaggedOutcome {
     }
 }
 
-fn decoded<T>(
+pub(crate) fn decoded<T>(
     bytes: &[u8],
     kind: u8,
     version: u16,

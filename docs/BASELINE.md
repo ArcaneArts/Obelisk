@@ -325,3 +325,15 @@ distributions and environment are recorded in the log; commands are in S3.md.
 This small workload is not an actual AWS qualification or comparable latency
 baseline (compilation/testing ran concurrently), and the development image has no
 upstream release identity. Logical counters do not measure physical HTTP requests.
+
+
+## Scalar lifecycle v3 qualification scope
+
+Cycle 16B selects authoritative v3 and adds index lifecycle plus mandatory writer
+maintenance. Existing tables above retain their original tested format and revision;
+the v2 startup/root byte counts are historical evidence, not v3 measurements.
+Cycle 16B runs correctness, bounded-work and root-only instrumentation tests plus
+the required local checks. The full v3 release matrix (100 through 100,000 documents,
+zero/one/multiple indexes and a building replacement), maximum-index safety,
+large-capacity rerun and indexed process-kill suite remain cycle 18. No new latency
+or storage-amplification baseline is claimed here.

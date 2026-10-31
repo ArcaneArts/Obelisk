@@ -557,4 +557,5 @@ scope/index shape: equality prefix, an optional range on the next component and
 matching remaining ordering. Incomplete indexes and implicit document scans are
 never query plans. Native cursors pin the snapshot and generation. Authoritative
 v3 databases will use fresh folders/prefixes with explicit rejection of v2, not
-automatic migration. The additive 16A codecs do not switch the production writer.
+automatic migration. The additive 16A codecs kept the v2 writer; 16B selects v3 and integrates
+both building and active maintenance before cycle 17 exposes indexed queries.

@@ -17,15 +17,15 @@ Each completed cycle is committed separately. See git history for exact commits.
 - [x] 13. Bulk reads and bounded hierarchy APIs.
 - [x] 14. Pagination, multiprocess/crash and scaling qualification.
 - [x] 15. Validated scalar-index definitions and ordered metadata primitives.
-- [ ] 16. Root-integrated resumable index build, reconciliation and activation.
+- [x] 16. Root-integrated resumable index build, reconciliation and activation.
   - [x] 16A. Additive lifecycle types and bounded v3/entry/projection/outcome codecs.
-  - [ ] 16B. Authoritative v3 integration, lifecycle APIs and mandatory writer maintenance.
-- [ ] 17. Atomic transaction maintenance and bounded indexed query APIs.
+  - [x] 16B. Authoritative v3 integration, lifecycle APIs and mandatory writer maintenance.
+- [ ] 17. Bounded indexed query APIs over atomically maintained generations.
 - [ ] 18. Index concurrency, interruption and scaling qualification.
 
 The scalar-index Task spans 16A, 16B, 17 and 18 as independently merged milestones.
-Cycle 16 remains incomplete until 16B; its activation must ship with writer
-maintenance rather than leave an active index stale until cycle 17. Later roadmap
+Cycle 16 is delivered by the 16B merge, including mandatory writer maintenance.
+Cycle 17 exposes queries over that maintained state. Later roadmap
 features (compaction, reclamation, backup/restore and transport) are separate Tasks.
 
 ## Evidence
@@ -135,13 +135,14 @@ filesystem or transport implementations.
 
 History, orphaned uploads, request outcomes, and abandoned temporary files are not
 automatically reclaimed. Paged metadata now removes whole-manifest rewrites; single-head contention and
-retained-history growth still limit the prototype. Field indexes,
-compaction, reclamation, backup/restore and transport remain deferred as scoped.
+retained-history growth still limit the prototype. Scalar lifecycle and maintenance
+are delivered in cycle 16; indexed queries and qualification remain cycles 17–18.
+Compaction, reclamation, backup/restore and transport remain deferred as scoped.
 
 The four query-foundation implementation milestones are complete locally.
 Actual-S3 qualification remains parallel and externally configured. Scalar-index
-primitives are complete; lifecycle integration, maintenance, queries and
-qualification remain. Compaction/reclamation remain deferred.
+lifecycle and atomic maintenance are complete in cycle 16; indexed queries and
+qualification remain cycles 17–18. Compaction/reclamation remain deferred.
 
 ## Query foundations cycle 11 evidence
 
@@ -464,3 +465,54 @@ and activation, and maintain both building and active generations atomically on
 every document write. Cycle 17 supplies indexed queries and examples; cycle 18
 qualifies independent processes, interruptions and scale. Actual AWS acceptance
 remains open without a dedicated external bucket/prefix and credential provider.
+
+
+## Scalar indexes cycle 16B evidence
+
+Production HEAD/root now select v3 and persist the bounded index catalog. Fresh
+folders/prefixes are required; v1/v2 rejection occurs before any upload or HEAD
+attempt. Opening remains limited to HEAD/root even with an active index. Public
+engine/facade methods create, inspect/list, advance, rebuild, drop and resolve
+management operations. Snapshots inspect their own retained catalog. Generations,
+pinned source references, progress, failures and original outcomes survive reopen.
+
+Online steps enumerate bounded pinned source paths but reconcile current documents.
+Every foreground batch updates building and active generations through the same
+root as document locations, membership and outcomes. Rebuild maintains both until
+atomic activation; drop removes current maintenance without deleting history.
+Covered binary/list values live in separate bounded projection objects. Eligible
+oversized new keys reject the whole write; oversized pre-existing keys persist an
+actionable build failure and permit repair/rebuild. Missing/type-mismatched later
+components correctly omit a document before key-size validation.
+
+Forced-CAS tests cover registration versus an already-prepared writer, activation
+versus a write, competing builders, and drop/recreate versus a stale builder. Tests
+also cover byte-limited progress, updates before enumeration, post-base inserts,
+covered-only changes, delete/recreate, stale generations, original request replay,
+shared-namespace reuse, all four management operations with concealed success,
+failed resolution reads, and a one-attempt concealed-conflict outcome. Checksummed
+cross-object identity corruption and impossible source positions reject safely.
+Metadata-only publications preserve the catalog, revisions, outcomes and retained
+snapshots. Low resource limits reject before upload/publication, including a new
+regression that first reproduced initialization publishing a root unreadable under
+its own configured limits; initialization and shared publication now validate the
+prepared authority against a fresh reader budget before uploads.
+
+Milestone 16A was independently merged as PR #10; Linux, macOS and Windows checks
+were observed passing. The unrelated primary manifest-whitespace commit remains
+preserved; primary cannot be fast-forwarded to upstream without changing that
+history. Cycle 16B uses its own isolated branch based on that merge. Its local
+validation and PR delivery do not complete the full scalar-index Task: cycles 17
+and 18 remain required.
+
+Local validation on 2026-10-31: **98 workspace tests passed, five ignored**.
+All six required checks passed: formatting, all-feature workspace tests, strict
+all-feature workspace Clippy, folder-only and S3-only facade Clippy, and
+no-default-feature workspace checking. Folder-only and S3-only example builds
+also passed. The local facade example ran twice against a disposable POSIX folder
+and returned identical persisted receipts and documents. Diff checks passed.
+The ignored gates remain two actual-AWS tests, two emulator tests and the large
+release capacity workload; none ran in this milestone. The existing non-indexed
+folder multiprocess/crash suite passed in the workspace run. Expanded indexed
+independent-process/crash and release scaling/capacity evidence remains cycle 18;
+no new AWS, emulator, performance or hardware-power-loss evidence is claimed.

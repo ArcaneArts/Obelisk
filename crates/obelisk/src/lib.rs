@@ -91,6 +91,50 @@ impl Database {
     pub async fn resolve(&self, request_id: &str) -> Result<Option<CommitReceipt>> {
         self.engine.resolve(&RequestId::new(request_id)?).await
     }
+    pub async fn create_index(
+        &self,
+        request_id: &str,
+        definition: IndexDefinition,
+    ) -> Result<IndexReceipt> {
+        self.engine
+            .create_index(&RequestId::new(request_id)?, definition)
+            .await
+    }
+    pub async fn get_index(&self, id: &IndexId) -> Result<Option<IndexStatus>> {
+        self.engine.get_index(id).await
+    }
+    pub async fn list_indexes(&self) -> Result<Vec<IndexStatus>> {
+        self.engine.list_indexes().await
+    }
+    pub async fn advance_index_build(
+        &self,
+        request_id: &str,
+        handle: &IndexHandle,
+        options: IndexBuildOptions,
+    ) -> Result<IndexReceipt> {
+        self.engine
+            .advance_index_build(&RequestId::new(request_id)?, handle, options)
+            .await
+    }
+    pub async fn rebuild_index(
+        &self,
+        request_id: &str,
+        handle: &IndexHandle,
+    ) -> Result<IndexReceipt> {
+        self.engine
+            .rebuild_index(&RequestId::new(request_id)?, handle)
+            .await
+    }
+    pub async fn drop_index(&self, request_id: &str, handle: &IndexHandle) -> Result<IndexReceipt> {
+        self.engine
+            .drop_index(&RequestId::new(request_id)?, handle)
+            .await
+    }
+    pub async fn resolve_index_operation(&self, request_id: &str) -> Result<Option<IndexReceipt>> {
+        self.engine
+            .resolve_index_operation(&RequestId::new(request_id)?)
+            .await
+    }
     pub async fn put(
         &self,
         request_id: &str,

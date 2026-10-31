@@ -592,6 +592,11 @@ pub(crate) fn document_allocation(document: &Document) -> usize {
     fields_allocation(document.fields())
 }
 pub(crate) fn fields_allocation(fields: &BTreeMap<FieldPath, Value>) -> usize {
+    selected_fields_allocation(fields.iter())
+}
+pub(crate) fn selected_fields_allocation<'a>(
+    fields: impl Iterator<Item = (&'a FieldPath, &'a Value)>,
+) -> usize {
     fn type_heap(ty: &ValueType) -> usize {
         match ty {
             ValueType::List(inner) => std::mem::size_of::<ValueType>() + type_heap(inner),
@@ -611,7 +616,6 @@ pub(crate) fn fields_allocation(fields: &BTreeMap<FieldPath, Value>) -> usize {
         }
     }
     128 + fields
-        .iter()
         .map(|(path, value)| {
             128 + std::mem::size_of::<Value>()
                 + std::mem::size_of_val(path.segments())
