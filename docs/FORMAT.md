@@ -95,7 +95,7 @@ scope and root/path scope value, one to eight ordered scalar component descripto
 and zero to 32 canonical covered field paths. Paths retain explicit segment counts
 and length-prefixed UTF-8 segments. Encoded definitions fit the 8192-byte metadata
 leaf-value limit. Page family 4 identifies definition trees and family 5 identifies
-scalar-entry trees. Neither family is referenced by the production v2 root yet.
+scalar-entry trees. The historical v2 root does not reference either family.
 
 A scalar-entry key concatenates every component encoding and then the existing
 ordered document-path key as an ascending tie-breaker. Each component starts with
@@ -183,3 +183,17 @@ components stay equal. All document/membership/index/outcome objects and the roo
 are durable before HEAD CAS. Conflict retries reopen authoritative state and
 recompute these changes. Drop removes the current catalog entry/count, retaining
 all old references. No new object family introduces automatic deletion.
+
+
+## Native scalar-query cursor identity
+
+Cycle 17 changes no persisted database encoding. Native Rust cursors have private
+fields: committed snapshot reference, index ID/generation, ordering version 1,
+last emitted composite key and a canonical query digest. The digest uses the
+`ObeliskIndexedQuery-v1` domain, canonical scope/shape and scalar-value encodings,
+range endpoint tags, sorted projection paths and explicit index selection. Page
+limits are excluded. The engine validates the version, digest, database/snapshot,
+selected generation, bounded position key, range/scope and original tree membership.
+There is no public decoder or portable token contract. Historical v3 roots and
+retained objects support continuations after current rebuild/drop without writing
+cursor objects or server sessions.

@@ -288,3 +288,41 @@ Prepared HEAD/root bytes must fit a fresh configured snapshot-reader budget befo
 any object upload. This applies to initialization and the shared publisher, so
 preparation cannot create authoritative state that the same profile cannot reopen.
 The operation's aggregate preparation budget remains separately enforced.
+
+
+## Indexed queries (17)
+
+`IndexedQuery` validates an exact children/descendants scope, ordered equality
+prefix, optional range on the first remaining component, complete suffix ordering,
+and canonical projection. Predicates use exact typed scalar values. Prefix field
+order matters; equality component directions are immaterial. All suffix directions
+must match. The signature includes every index key field: unused extra components
+could omit otherwise matching documents or alter document-path ties. No implicit
+scan, residual filter or in-memory sort is planned. Select the smallest compatible
+active ID or require an explicit ID; missing/inactive/incompatible indexes return
+an `IndexUnavailable` error with the required signature and reason.
+
+Range endpoints describe semantic value order independently of index direction.
+Composite prefixes and their exclusive byte successors implement included/excluded
+bounds, including descending strings and empty ranges. Only the selected generation
+in the pinned root is read. Entry generation/location/revision and projection
+identity/field membership are checked. Full reads additionally compare the document's
+key against the stored key. Key-only projections avoid projection and payload reads;
+covered projections read only the selected immutable cover object as needed.
+Uncovered selections read the document from that same snapshot. Types and absent
+fields survive projection; binary/list values remain valid covered values.
+
+Native scalar cursors bind a versioned canonical BLAKE3 query identity, snapshot,
+index handle and last composite key. Identity includes canonical projection and
+explicit selection, not page budgets. Resume validates the position and its
+membership in the original entry tree. Reopen, writes, rebuild and drop do not
+invalidate retained continuations. Hierarchy cursors remain distinct. There is
+no portable decoder, expiration, transport or new persistent format in this cycle.
+
+Query specs are bounded to 64 KiB and selections to 1024 fields. Pages reuse the
+100/256-entry and 16 MiB limits plus aggregate budgets. Metadata-only lookahead
+never fetches another full payload. For a byte-limited uncovered projection,
+stop conservatively if the next full record might exceed remaining response space;
+an empty page can still fetch that record to return its smaller projection.
+No maximum-fill guarantee is made. This avoids redundant full reads without adding
+per-field size metadata or another persistence format.

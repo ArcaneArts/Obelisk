@@ -2,6 +2,7 @@
 mod document;
 mod index;
 mod index_lifecycle;
+mod index_query;
 mod path;
 mod query;
 mod transaction;
@@ -9,6 +10,7 @@ mod value;
 pub use document::*;
 pub use index::*;
 pub use index_lifecycle::*;
+pub use index_query::*;
 pub use path::*;
 pub use query::*;
 pub use transaction::*;
