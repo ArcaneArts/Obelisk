@@ -531,11 +531,13 @@ adds a resumable online lifecycle, atomic transaction maintenance and bounded
 indexed queries, followed by independent-process, interruption and scaling
 qualification. A query may use only an active index published in its snapshot.
 
-Cycle 15 delivered definition/key/page primitives. Continue with independently
-merged milestones 16A (additive lifecycle/value codecs), 16B (root-integrated build,
+Cycle 15 delivered definition/key/page primitives. Independently merged
+milestones 16A (additive lifecycle/value codecs), 16B (root-integrated build,
 reconciliation, activation and mandatory writer maintenance), 17 (indexed query
-APIs), and 18 (concurrency/crash and scaling qualification). Activation cannot
-precede writer maintenance, even before public indexed queries are exposed. The block
+APIs), and 18 (concurrency/crash and scaling qualification) now deliver the scalar
+block; evidence and remaining external gates are in
+IMPLEMENTATION.md and BASELINE.md. Activation cannot precede writer maintenance,
+even before public indexed queries are exposed. The block
 starts with exact string, integer, double and boolean components. Binary and list
 indexes, deliberate scans, compaction, reclamation, portable cursor tokens and a
 wire protocol remain outside it.
@@ -556,7 +558,7 @@ existing aggregate resource budgets also apply. Queries require an exact typed
 scope/index shape: equality prefix, an optional range on the next component and
 matching remaining ordering. Incomplete indexes and implicit document scans are
 never query plans. Native cursors pin the snapshot and generation. Authoritative
-v3 databases will use fresh folders/prefixes with explicit rejection of v2, not
+v3 databases use fresh folders/prefixes with explicit rejection of v2, not
 automatic migration. The additive 16A codecs kept the v2 writer; 16B selects v3 and integrates
 both building and active maintenance before cycle 17 exposes indexed queries.
 
@@ -564,6 +566,11 @@ both building and active maintenance before cycle 17 exposes indexed queries.
 Cycle 17 exposes exact-shape indexed queries through the facade and pinned
 snapshots, including typed prefix/range bounds, declared order, projections,
 covered reads and native snapshot cursors. Missing/incomplete indexes fail usefully
-instead of triggering implicit scans. Cycle 18 remains the independent-process,
-interruption, capacity and release-scaling qualification gate for the complete
-scalar block. Actual-AWS acceptance remains externally configured and open.
+instead of triggering implicit scans. Cycle 18 completes local independent-process,
+interruption, capacity and release-scaling qualification for the complete scalar
+block, including the 100,000-document matrix and 16-index safety gate. Actual-AWS
+acceptance remains externally configured and open. Measured build/write costs,
+single-HEAD contention and retained-object growth guide the next separate Tasks: AWS
+qualification, targeted traversal/cache improvements, tested backup/restore and
+resumable compaction, then a retention protocol before any reclamation. Deliberate
+scans and operational diagnostics precede transport and clients.

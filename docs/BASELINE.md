@@ -359,9 +359,11 @@ contain at most 256 documents. Each size measures zero indexes, one bucket/rank
 index covering label, three active indexes, and those three with a building
 replacement of the covering generation. The other indexes order rank and
 (enabled, rank). Each initial index builds completely; replacement measurement
-first commits 32 examined paths, measures concurrent foreground work while it is
-Building, then finishes the replacement. Build calls cap examined paths at 32
-and source payload at 16 MiB. Root-only opening, eight-result selective key/covered/
+first commits 32 examined paths, pauses build advancement while serial/contended
+foreground writes maintain the Building candidate, then finishes the replacement.
+The timed foreground profiles include candidate maintenance but no simultaneous
+builder IO; the separate process suite exercises concurrent builders and writers.
+Build calls cap examined paths at 32 and source payload at 16 MiB. Root-only opening, eight-result selective key/covered/
 full queries and exact path/rank expectations are asserted at each applicable phase.
 
 Each profile includes eight key-changing serial document replacements and four
@@ -374,16 +376,33 @@ Counters describe logical adapter operations and bytes including HEAD, not physi
 HTTP requests or allocator RSS. OS caches are not flushed. Small sample percentile
 summaries are observations, not universal targets or regression thresholds.
 
-The current full command is:
+The complete matrix command is:
 
 ```sh
 cargo run --release -p obelisk --example index_scaling --locked
 ```
 
-The run defaults to the folder backend and a 100,000-document final checkpoint.
-It is still in progress; final measurements and the acceptance summary will be
-recorded after successful completion. The 100,000-document old-manifest-capacity
-rerun already passed separately with a 386-byte populated root. Completed partial
-matrix checkpoints use a 467-byte populated root when a catalog is present, with
-no catalog/entry/document tree reads during opening. Historical v2 byte counts
-above retain their original scope.
+The default folder run completed with exit zero through the 100,000-document
+replacement activation, post-activation reference queries, drops and final retained
+object counts. The [scalar qualification report](measurements/scalar-index-2026-10-31.md)
+records the environment, exact engine/binary identity, raw output, latency/build
+distributions, structural checks and successful/abandoned upload accounting.
+The independent log audit verifies all 16 startup profiles, 16 upload profiles and
+84 query rows. The populated v3 root is 386 bytes without a catalog and 467 with
+one; opens transfer 800/881 logical bytes and load no other objects. Historical v2
+byte counts above retain their original scope.
+
+At 100,000 documents, eight selective results require 24 location-page and four
+scalar-page reads, with zero full-record reads for key/covered projections and
+exactly eight for full documents. Single-update structural tests preserve unrelated
+child references. The separate release capacity gate passed in 193.67s with
+91,200,000 live location key/value bytes and five location pages for one update.
+The maximum 16-active-plus-candidate safety gate passed in release in 6.50s.
+
+Costs remain material: the initial 100,000-document covering build took 49.08
+minutes, read 8.49 billion logical bytes and wrote 1.38 billion. Serial update p50
+at that size was 100.725/177.881/266.462/280.833ms for zero/one/three/replacement
+profiles. The report includes all observations and small-sample distributions;
+OS cache state, growing history and overlapping local tests limit comparisons.
+No latency SLO, physical HTTP cost, hardware-power-loss or actual-AWS acceptance
+claim follows. Retained storage and HEAD contention remain operational limits.

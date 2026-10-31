@@ -197,3 +197,13 @@ selected generation, bounded position key, range/scope and original tree members
 There is no public decoder or portable token contract. Historical v3 roots and
 retained objects support continuations after current rebuild/drop without writing
 cursor objects or server sessions.
+
+## Qualified v3 sizes
+
+The cycle-18 release matrix leaves these encodings unchanged. Populated roots
+measured 386 bytes with the three original trees and no catalog, and 467 bytes
+with a catalog reference. HEAD is 207 bytes, so an open that reads it twice and
+the root once transfers 800/881 logical bytes. These fixture observations do not
+replace the 16 KiB root bound. The capacity gate uses the actual 386-byte v3 root;
+historical 381-byte v2 results remain labeled as older measurements. No format
+upgrade, reclamation or cursor serialization is introduced by qualification.

@@ -21,7 +21,7 @@ Each completed cycle is committed separately. See git history for exact commits.
   - [x] 16A. Additive lifecycle types and bounded v3/entry/projection/outcome codecs.
   - [x] 16B. Authoritative v3 integration, lifecycle APIs and mandatory writer maintenance.
 - [x] 17. Bounded indexed query APIs over atomically maintained generations.
-- [ ] 18. Index concurrency, interruption and scaling qualification.
+- [x] 18. Index concurrency, interruption and scaling qualification.
 
 The scalar-index Task spans 16A, 16B, 17 and 18 as independently merged milestones.
 Cycle 16 is delivered by the 16B merge, including mandatory writer maintenance.
@@ -136,13 +136,14 @@ filesystem or transport implementations.
 History, orphaned uploads, request outcomes, and abandoned temporary files are not
 automatically reclaimed. Paged metadata now removes whole-manifest rewrites; single-head contention and
 retained-history growth still limit the prototype. Scalar lifecycle and maintenance
-are delivered in cycle 16; scalar-index qualification remains cycle 18.
+are delivered in cycle 16; indexed queries and local scalar qualification are
+delivered in cycles 17–18.
 Compaction, reclamation, backup/restore and transport remain deferred as scoped.
 
 The four query-foundation implementation milestones are complete locally.
 Actual-S3 qualification remains parallel and externally configured. Scalar-index
-lifecycle and atomic maintenance are complete in cycle 16; scalar-index
-qualification remains cycle 18. Compaction/reclamation remain deferred.
+lifecycle, atomic maintenance, queries and local qualification are complete in
+cycles 16–18. Actual AWS acceptance stays open; compaction/reclamation remain deferred.
 
 ## Query foundations cycle 11 evidence
 
@@ -569,87 +570,96 @@ none ran in this milestone. Existing folder multiprocess/hierarchy/crash tests
 passed in the workspace run. Expanded indexed subprocess and release measurements
 remain cycle 18. No new AWS, emulator or hardware-power-loss evidence is claimed.
 
+## Scalar indexes cycle 18 evidence and final Task audit
 
-## Scalar indexes cycle 18 qualification in progress
+The complete scalar-index block is delivered by independently reviewable milestones
+16A, 16B, 17 and 18. The preceding milestones merged as PRs #10, #11 and #12 with
+Linux/macOS/Windows checks observed passing. This qualification milestone uses its
+own branch based on the cycle-17 merge and changes no production engine/storage
+semantics. Its delivery gate is the independently merged qualification PR.
 
-Milestone 17 independently merged as PR #12; all Linux, macOS and Windows CI jobs
-were observed passing. Its worktree and local/remote-tracking branches were removed;
-primary's unrelated commit remains preserved. Cycle 18 uses a fresh isolated branch
-from that upstream merge. Production engine/storage semantics are unchanged by the
-current qualification changes.
+The shared backend process harness classifies definition, descriptor, projection,
+catalog and scalar-page uploads. Initial-build and rebuild phases each run four
+independent builders plus four writers, comparing full/covered pages with documents
+from the same snapshot. An independent drop/recreation defeats a prepared stale
+rebuild without advancing the new generation. Native pinned pagination survives
+independent writes, rebuild, drop and reopen. All 50 new indexed crash markers and
+24 existing publication markers were reached and recovered, alongside OS-lock death
+and the separate folder rename-before-directory-sync recovery test. These kill
+client processes and do not prove hardware-power-loss durability.
 
-The shared backend subprocess harness now classifies definition, descriptor,
-projection, catalog and scalar-page uploads. Four builders and four writers run
-coordinated initial-build and rebuild phases, comparing full/covered indexed pages
-with documents from the same snapshot. Another process drops/recreates an index
-while an old rebuild chunk is prepared before CAS; the stale chunk fails without
-advancing the replacement. Retained native pagination survives independent writes,
-rebuild, drop and engine reopen. Fifty new indexed crash markers cover registration,
-chunks, activation, rebuild, drop and writes with both generations. Every intended
-marker was reached; state, original receipts and resumable progress remain coherent.
-The 24 existing publication boundaries and OS-lock-death scenario also pass.
+A deterministic non-final chunk/write conflict forces recomputation after one batch
+updates the current and unscanned paths, deletes another source path and inserts a
+post-base path. Only current entries and the successful chunk's progress publish.
+Activation yields the complete current result; replay preserves the original
+Building receipt. Structural tests prove root-only opening, selective page work,
+covered payload avoidance and exact unchanged unrelated scalar child references.
+The maximum-index case maintains an updated base path and inserted post-base path
+in all 16 active definitions plus a candidate; activation preserves both. A 17th
+definition rejects before uploads. The release maximum-index gate passed in 6.50s.
 
-Structural tests prove root-only opening with indexes, selective bounded query work,
-covered-read avoidance and unchanged unrelated scalar child references after a local
-edit. A maximum-index safety case atomically maintains 16 active definitions plus a
-building replacement, rejects a 17th definition before uploads, and verifies every
-active result and the replacement's eventual activation.
+Local validation: **108 workspace tests passed, five ignored**. All six required
+checks, folder-only/S3-only example builds and diff checks passed. The ignores are
+two actual-AWS tests, two emulator tests and the opt-in large capacity gate; the
+capacity gate ran separately and passed in 193.67s. It verifies 100,000 documents,
+91,200,000 live location key/value bytes, a 386-byte v3 root, five location pages
+for one update, original receipts and retained reads. The focused expanded folder
+process suite passed in 106.03s. Prior milestones' facade examples ran twice against
+their disposable POSIX folder and demonstrated persisted original receipts.
 
-Local checks: **108 workspace tests passed, five ignored**. All six required checks,
-folder-only/S3-only example builds and focused structural checks passed. The release
-capacity gate ran separately and passed in 193.67 seconds: 100,000 live documents,
-91,200,000 live location key/value bytes, a 386-byte v3 root, five location pages for
-one update, preserved original receipts and retained reads. The process suite passed
-in 106.03 seconds. Raw capacity, process and structure evidence is under
-`docs/measurements/scalar-index-2026-10-31-*.txt`.
+The release scalar matrix completed with exit zero at 100/1,000/10,000/100,000
+documents, zero/one/three active indexes and a building replacement. All initial
+and replacement builds finished, including post-activation queries and final drops.
+An independent log audit verified 16 root-only opens, 16 fully reconciled upload
+profiles and 84 selective query rows. Opens transfer 800/881 logical bytes with a
+386/467-byte root; no non-root objects load during opening. At 100,000 documents,
+eight-result queries use 24 location and four scalar page reads; key/covered queries
+read zero full documents and full queries read exactly eight. Ordinary update
+tests preserve unrelated subtrees rather than rewriting them.
 
-The complete release scalar matrix is still running and is not yet acceptance
-evidence for all sizes. The new `index_scaling` example defaults to 100/1,000/10,000/
-100,000 documents, zero/one/three active indexes and a building replacement. It
-measures bounded progress, startup, selective key/covered/full reads, serial and
-contended updates, logical IO, and successful/abandoned uploads. Do not mark cycle
-18 or the Task complete until the full matrix, final audit and independent PR merge
-are finished. Actual-AWS bucket/prefix and custom emulator endpoint configuration
-were absent; those external gates remain open. Hardware power loss is unverified.
+Measured costs remain significant: the first 100,000-document covering build took
+49.08 minutes, with 8.49 billion logical read bytes and 1.38 billion written bytes.
+At that size serial update p50 was 100.725/177.881/266.462/280.833ms across the four
+profiles. Small samples, shared growing history, warm uncontrolled OS caches and
+overlapping local tests limit latency comparisons. Logical counters do not measure
+HTTP requests, allocator RSS or disk-level costs. Foreground replacement timings
+pause build advancement while writers maintain its candidate; simultaneous builders
+and writers are exercised separately by the process suite.
 
+Exact commands, environment, implementation/binary identity, raw logs, build work,
+latency distributions, retained bytes and successful/abandoned upload accounting
+are in [the scalar qualification report](measurements/scalar-index-2026-10-31.md).
+The raw required-check log and companion capacity/process/structure/race/maximum
+logs are retained in the same directory. The audit script requires a complete
+matrix rather than accepting partial output.
 
-The acceptance audit added a forced non-final chunk/write conflict: the prepared
-chunk loses CAS to one batch updating its current and unscanned paths, deleting a
-source path and inserting a post-base path. Retry persists only current entries,
-remains Building, counts the deleted source path on later steps, and activates with
-the correct complete result. Replaying the original step after activation preserves
-its original Building receipt. The focused case and all required checks pass.
-The maximum-index workload also passed separately in release mode; its stronger
-replacement/post-base insertion case passed in 6.50 seconds.
-The full release matrix remains running at 100,000 documents; no completion claim
-is made from partial output.
+### Completed scalar Task acceptance audit
 
+| Requirement | Evidence |
+| --- | --- |
+| Validated formats and crate boundaries | Public lifecycle/query types stay persistence-independent; bounded v3/descriptor/entry/projection/tagged-outcome codecs exercise versions, identities, sizes, hostile checksummed inputs and allocation charges; storage remains byte-only |
+| Durable lifecycle and original outcomes | Create/status/list/advance/rebuild/drop/resolve survive reopen, bounded progress, failure/repair and process kills; stale generations and shared-namespace reuse reject; replay returns original receipts before state conditions |
+| Atomic building/active maintenance | Registration/write, non-final chunk/write, builder/builder, activation/write and stale-generation CAS gates; processed/unscanned/deleted/post-base paths; metadata-only publication preserves catalog/revisions/outcomes |
+| Exact indexed query contract | Complete paginated independent reference results across scalar types, directions, bounds, scopes, paths and projections; missing/incompatible/incomplete indexes fail usefully; covered binary/list values avoid payload reads |
+| Snapshot continuation and cursor errors | Reopen/write/rebuild/drop facade and independent-process continuation; explicit query/projection/snapshot/database/generation/version/position mismatch checks |
+| Safe compatibility/corruption/resources | V1/v2 reject before writes; descriptor/entry/projection corruption and missing references fail safely; key/source/decoded/prepared limits and prepared-authority reader checks precede publication; retained history remains intact |
+| Recovery and feature independence | Expanded process/reference suite, all 50 indexed plus 24 existing kill markers, OS-lock death and adapter sync recovery; 108 passing tests, all required checks, folder/S3 example builds and platform CI |
+| Capacity and complete scaling | Release 100,000-document capacity beyond 64MiB metadata; all four matrix sizes and profiles; 16 active plus candidate safety; root-only startup, bounded builds/selective reads and unchanged subtrees; reconciled successful/abandoned uploads |
+| Independent delivery | 16A PR #10, 16B PR #11, indexed-query PR #12, and this separately verified qualification milestone; each based on its predecessor's upstream merge |
+| Documentation/developer experience | Thin facade, resumed-build/indexed examples, exact query/errors/cursors/limits, versioned format, actual evidence and follow-up roadmap documented |
+| External AWS/platform limits | Actual-AWS acceptance explicitly open without dedicated external bucket/test prefix; no new emulator run, hardware-power-loss or network-filesystem claim; Windows folder unsupported |
 
-### Scalar Task acceptance audit at the qualification checkpoint
+Roll out only through fresh v3 folders/prefixes. Preserve old data and matching
+binaries; no in-place migration/reset or binary-downgrade rollback is provided.
+Bounded build progress survives worker loss, but retained history/orphans/outcomes,
+write amplification and one-HEAD contention remain operational limits. Compaction,
+backup/restore, retention-safe reclamation, deliberate scans, caches and transport
+remain separate follow-up Tasks. Actual AWS storage/recovery/scaling qualification
+is the next external acceptance gate, not an inferred result of folder or MinIO
+tests. No external bucket/test prefix or emulator endpoint was configured here.
 
-This audit keeps the original cycles 16A/16B/17/18 scope. Running measurements and
-unmerged delivery are incomplete gates; passing narrower checks does not close them.
-
-| Requirement | Current authoritative evidence | State |
-| --- | --- | --- |
-| Validated, bounded lifecycle formats and crate boundaries | `index_lifecycle` public types; engine `metadata/lifecycle` round trips, maximum paths/identities, hostile checksummed payloads, versions, projections and tagged outcomes; unchanged byte-only storage contract | Verified locally; 16A merged as PR #10 |
-| Persisted create/status/list/advance/rebuild/drop/resolve | Engine/facade lifecycle tests; original outcomes across reopen, progress, semantic failure/repair, stale generations and shared request namespace | Verified locally; 16B merged as PR #11 |
-| Atomic building/active maintenance and fresh conflict recomputation | Registration/write, non-final chunk/write, builder/builder, activation/write and stale generation CAS gates; current/unscanned/deleted/post-base paths; metadata-only catalog/revision/outcome preservation | Verified locally |
-| Indexed type/scope/order/projection contract | Independent complete paginated reference results; all scalar types/directions and range endpoints; exact shape rejection; covered binary/list, missing fields and covered-only updates | Verified locally; 17 merged as PR #12 |
-| Retained snapshot continuations and explicit cursor errors | Reopen/write/rebuild/drop facade tests; native version/generation/query/projection/snapshot/database/position mismatches; independent-process retained pagination | Verified locally |
-| Compatibility, corruption and resource safety | V1/v2 rejection before uploads, lazy root-only opening, descriptor/entry/projection identity corruption, missing references, hard key bounds, source/decoded/prepared limits and prepared-root reader validation | Verified locally |
-| Independent-process and client-kill recovery | Two coordinated four-builder/four-writer phases, prepared rebuild versus independent drop/recreation, 50 indexed kill markers, existing 24 commit markers and lock-death case; raw process evidence | Verified locally; actual AWS and hardware power loss remain distinct |
-| Local validation and runnable developer experience | 108 passing workspace tests, five opt-in ignores, all six required checks, folder/S3 example builds, prior twice-run indexed facade example with persisted replay; checkpoint platform CI passed | Verified locally |
-| Capacity, selective work and unchanged subtrees | Release capacity: 100,000 documents and 91,200,000 live location bytes; indexed structural assertions; 16 active definitions plus one candidate maintained in debug and release | Verified locally |
-| Complete release scaling matrix | Existing process session covers 100/1,000/10,000/100,000 documents with zero/one/three indexes and a building replacement; full completion and final counter audit still awaited | Running; not complete |
-| Independent milestone delivery | PRs #10, #11 and #12 are merged; qualification source checkpoint is pushed and CI passed, but the final qualification PR is not yet open/merged | Pending milestone 18 delivery |
-| Rollout and remaining operational limits | Fresh v3 folders/prefixes; matching old binaries/data preserved; no reclamation/compaction/transport; logical IO, POSIX, retention and single-HEAD limits documented | Documented; final measured limits still to be added |
-| Actual AWS acceptance | No externally configured dedicated bucket/test prefix; no new AWS or emulator execution evidence | Explicit external gate remains open as permitted by the plan |
-
-
-The maximum-index gate now requires a new path inserted after replacement
-registration as well as an updated base path. Both paths must appear in all 16
-active indexes and, after activation, in the replacement. This directly proves
-foreground candidate maintenance at the configured maximum; the post-base path
-cannot be recovered by enumerating that candidate's pinned source. The focused
-debug/release cases pass. The final 100,000-document matrix is still running.
+Primary's unrelated manifest-whitespace commit is preserved; its diverged history
+prevents safe fast-forward synchronization, so no reset/rebase was used. The clean
+16B worktree remains retained because Cantrip refuses removal while a chat/surface
+references it. Owned unbound milestone worktrees are removed only after merge;
+unrelated worktrees remain untouched.

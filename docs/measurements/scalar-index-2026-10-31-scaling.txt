@@ -1,0 +1,419 @@
+   Compiling getrandom v0.4.3
+   Compiling uuid v1.28.0
+   Compiling tempfile v3.27.0
+   Compiling obelisk-storage v0.1.0 (/Users/cyberpwn/development/workspace/ArcaneArts/Cantrip/.cantrip/dev/worker/worktrees/cddf0584a05ebfd20b23/obelisk-scalar-index-qualification-95479fb410a2/crates/obelisk-storage)
+   Compiling obelisk-engine v0.1.0 (/Users/cyberpwn/development/workspace/ArcaneArts/Cantrip/.cantrip/dev/worker/worktrees/cddf0584a05ebfd20b23/obelisk-scalar-index-qualification-95479fb410a2/crates/obelisk-engine)
+   Compiling obelisk v0.1.0 (/Users/cyberpwn/development/workspace/ArcaneArts/Cantrip/.cantrip/dev/worker/worktrees/cddf0584a05ebfd20b23/obelisk-scalar-index-qualification-95479fb410a2/crates/obelisk)
+    Finished `release` profile [optimized] target(s) in 4.31s
+     Running `target/release/examples/index_scaling`
+Index scaling: OS=macos/aarch64 max=100000; payload=1024 binary bytes plus scalar fields and label; seed batches<=256; build chunks<=32 and 16MiB source; 8 serial updates and 4 writers x3 updates per profile. No engine cache; OS caches not flushed. Counters are logical adapter IO, not physical HTTP or allocator RSS. Profiles share one growing dataset and retained request history; indexes are dropped before the next size.
+| Operation | Documents | Profile | ms | Object reads | Total read bytes incl HEAD | Root bytes | Document pages | Catalog pages | Scalar pages | Full records | Projections | Scalar pages created | Objects created | Written bytes incl HEAD | Conflicts |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| fill | 100 | zero | 67.836 | 1 | 350 | 143 | 0 | 0 | 0 | 0 | 0 | 0 | 6 | 151187 | 0 |
+latency seed-batch: size=100 profile=zero samples=1 p50=67.835 p95=67.835 p99=67.835 ms
+| open | 100 | zero | 4.096 | 1 | 800 | 386 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| update | 100 | zero | 54.955 | 5 | 24233 | 386 | 2 | 0 | 0 | 0 | 0 | 0 | 5 | 14128 | 0 |
+| update | 100 | zero | 64.186 | 5 | 24481 | 386 | 2 | 0 | 0 | 0 | 0 | 0 | 5 | 14252 | 0 |
+| update | 100 | zero | 57.311 | 5 | 24729 | 386 | 2 | 0 | 0 | 0 | 0 | 0 | 5 | 14376 | 0 |
+| update | 100 | zero | 61.326 | 5 | 24977 | 386 | 2 | 0 | 0 | 0 | 0 | 0 | 5 | 14500 | 0 |
+| update | 100 | zero | 62.088 | 5 | 25225 | 386 | 2 | 0 | 0 | 0 | 0 | 0 | 5 | 14624 | 0 |
+| update | 100 | zero | 62.230 | 5 | 25473 | 386 | 2 | 0 | 0 | 0 | 0 | 0 | 5 | 14748 | 0 |
+| update | 100 | zero | 62.286 | 5 | 25721 | 386 | 2 | 0 | 0 | 0 | 0 | 0 | 5 | 14872 | 0 |
+| update | 100 | zero | 71.392 | 5 | 25969 | 386 | 2 | 0 | 0 | 0 | 0 | 0 | 5 | 14996 | 0 |
+latency foreground-update: size=100 profile=zero samples=8 p50=62.116 p95=71.430 p99=71.430 ms
+| contention | 100 | zero | 1396.751 | 159 | 848113 | 13510 | 62 | 0 | 0 | 0 | 0 | 0 | 155 | 481438 | 19 |
+latency contended-update: size=100 profile=zero samples=12 p50=129.508 p95=1240.037 p99=1240.037 ms
+uploads size=100 profile=zero: Accounting { committed: Uploads { attempts: 12, objects: 60, bytes: 187950 }, abandoned: Uploads { attempts: 19, objects: 95, bytes: 291004 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+| build-total | 100 | initial | 1276.256 | 352 | 1900344 | 3879 | 107 | 9 | 109 | 100 | 0 | 8 | 128 | 102435 | 0 |
+latency build-chunk: size=100 profile=initial samples=4 p50=358.147 p95=413.427 p99=413.427 ms
+build complete: size=100 index=primary chunks=4 examined=100 max_chunk=32 source_byte_limit=16777216
+| open | 100 | one | 4.499 | 1 | 881 | 467 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-key | 100 | one | 5.392 | 7 | 29304 | 467 | 1 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 100 | one | 4.251 | 8 | 29579 | 467 | 1 | 1 | 2 | 0 | 1 | 0 | 0 | 0 | 0 |
+| query-full | 100 | one | 4.357 | 8 | 30605 | 467 | 1 | 1 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+| update | 100 | one | 110.189 | 14 | 65582 | 467 | 2 | 2 | 4 | 1 | 0 | 2 | 10 | 34557 | 0 |
+| update | 100 | one | 110.753 | 14 | 65832 | 467 | 2 | 2 | 4 | 1 | 0 | 2 | 10 | 34682 | 0 |
+| update | 100 | one | 119.754 | 14 | 66082 | 467 | 2 | 2 | 4 | 1 | 0 | 2 | 10 | 34807 | 0 |
+| update | 100 | one | 123.503 | 14 | 66332 | 467 | 2 | 2 | 4 | 1 | 0 | 2 | 10 | 34932 | 0 |
+| update | 100 | one | 113.068 | 14 | 66582 | 467 | 2 | 2 | 4 | 1 | 0 | 2 | 10 | 35057 | 0 |
+| update | 100 | one | 111.529 | 14 | 66832 | 467 | 2 | 2 | 4 | 1 | 0 | 2 | 10 | 35182 | 0 |
+| update | 100 | one | 107.789 | 14 | 67082 | 467 | 2 | 2 | 4 | 1 | 0 | 2 | 10 | 35307 | 0 |
+| update | 100 | one | 118.613 | 14 | 67332 | 467 | 2 | 2 | 4 | 1 | 0 | 2 | 10 | 35432 | 0 |
+latency foreground-update: size=100 profile=one samples=8 p50=111.556 p95=123.532 p99=123.532 ms
+| contention | 100 | one | 2827.765 | 452 | 2199930 | 16812 | 64 | 64 | 128 | 32 | 0 | 64 | 320 | 1151087 | 20 |
+latency contended-update: size=100 profile=one samples=12 p50=301.705 p95=2606.952 p99=2606.952 ms
+uploads size=100 profile=one: Accounting { committed: Uploads { attempts: 12, objects: 120, bytes: 433170 }, abandoned: Uploads { attempts: 20, objects: 200, bytes: 715433 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+| query-key | 100 | one-after-writes | 4.309 | 7 | 29304 | 467 | 1 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 100 | one-after-writes | 4.243 | 8 | 29579 | 467 | 1 | 1 | 2 | 0 | 1 | 0 | 0 | 0 | 0 |
+| query-full | 100 | one-after-writes | 5.454 | 8 | 30605 | 467 | 1 | 1 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+| build-total | 100 | initial | 346.247 | 328 | 2155825 | 4203 | 107 | 9 | 77 | 100 | 0 | 8 | 28 | 95221 | 0 |
+latency build-chunk: size=100 profile=initial samples=4 p50=75.383 p95=102.619 p99=102.619 ms
+build complete: size=100 index=rank chunks=4 examined=100 max_chunk=32 source_byte_limit=16777216
+| build-total | 100 | initial | 332.350 | 336 | 2194122 | 4203 | 107 | 9 | 77 | 100 | 0 | 8 | 28 | 98745 | 0 |
+latency build-chunk: size=100 profile=initial samples=4 p50=66.433 p95=104.814 p99=104.814 ms
+build complete: size=100 index=enabled-rank chunks=4 examined=100 max_chunk=32 source_byte_limit=16777216
+| open | 100 | three | 5.360 | 1 | 881 | 467 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-key | 100 | three | 4.633 | 7 | 29488 | 467 | 1 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 100 | three | 5.114 | 8 | 29763 | 467 | 1 | 1 | 2 | 0 | 1 | 0 | 0 | 0 | 0 |
+| query-full | 100 | three | 5.255 | 8 | 30789 | 467 | 1 | 1 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+| update | 100 | three | 173.611 | 27 | 134406 | 467 | 2 | 2 | 13 | 1 | 0 | 7 | 17 | 77283 | 0 |
+| update | 100 | three | 182.086 | 27 | 134656 | 467 | 2 | 2 | 13 | 1 | 0 | 7 | 17 | 77408 | 0 |
+| update | 100 | three | 181.357 | 27 | 134906 | 467 | 2 | 2 | 13 | 1 | 0 | 7 | 17 | 77533 | 0 |
+| update | 100 | three | 196.113 | 27 | 135156 | 467 | 2 | 2 | 13 | 1 | 0 | 7 | 17 | 77658 | 0 |
+| update | 100 | three | 175.281 | 27 | 135406 | 467 | 2 | 2 | 13 | 1 | 0 | 7 | 17 | 77783 | 0 |
+| update | 100 | three | 175.119 | 27 | 135656 | 467 | 2 | 2 | 13 | 1 | 0 | 7 | 17 | 77908 | 0 |
+| update | 100 | three | 180.171 | 27 | 135906 | 467 | 2 | 2 | 13 | 1 | 0 | 7 | 17 | 78033 | 0 |
+| update | 100 | three | 176.306 | 27 | 136156 | 467 | 2 | 2 | 13 | 1 | 0 | 7 | 17 | 78158 | 0 |
+latency foreground-update: size=100 profile=three samples=8 p50=176.339 p95=196.143 p99=196.143 ms
+| contention | 100 | three | 4675.146 | 835 | 4015778 | 15878 | 60 | 60 | 411 | 30 | 0 | 231 | 531 | 2475108 | 18 |
+latency contended-update: size=100 profile=three samples=12 p50=459.618 p95=4282.365 p99=4282.365 ms
+uploads size=100 profile=three: Accounting { committed: Uploads { attempts: 12, objects: 210, bytes: 978426 }, abandoned: Uploads { attempts: 18, objects: 321, bytes: 1494198 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+| query-key | 100 | three-after-writes | 4.677 | 7 | 29488 | 467 | 1 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 100 | three-after-writes | 5.357 | 8 | 29763 | 467 | 1 | 1 | 2 | 0 | 1 | 0 | 0 | 0 | 0 |
+| query-full | 100 | three-after-writes | 5.165 | 8 | 30789 | 467 | 1 | 1 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+| open | 100 | three+replacement | 0.248 | 1 | 881 | 467 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-key | 100 | three+replacement | 4.247 | 7 | 29853 | 467 | 1 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 100 | three+replacement | 4.119 | 8 | 30128 | 467 | 1 | 1 | 2 | 0 | 1 | 0 | 0 | 0 | 0 |
+| query-full | 100 | three+replacement | 5.183 | 8 | 31154 | 467 | 1 | 1 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+| update | 100 | three+replacement | 215.165 | 29 | 159657 | 467 | 2 | 2 | 15 | 1 | 0 | 8 | 19 | 90664 | 0 |
+| update | 100 | three+replacement | 233.201 | 29 | 160503 | 467 | 2 | 2 | 15 | 1 | 0 | 8 | 19 | 90789 | 0 |
+| update | 100 | three+replacement | 190.855 | 29 | 160753 | 467 | 2 | 2 | 15 | 1 | 0 | 8 | 19 | 90914 | 0 |
+| update | 100 | three+replacement | 212.286 | 29 | 161003 | 467 | 2 | 2 | 15 | 1 | 0 | 8 | 19 | 91039 | 0 |
+| update | 100 | three+replacement | 235.644 | 29 | 161253 | 467 | 2 | 2 | 15 | 1 | 0 | 8 | 19 | 91164 | 0 |
+| update | 100 | three+replacement | 192.798 | 29 | 161503 | 467 | 2 | 2 | 15 | 1 | 0 | 8 | 19 | 91289 | 0 |
+| update | 100 | three+replacement | 210.145 | 29 | 161753 | 467 | 2 | 2 | 15 | 1 | 0 | 8 | 19 | 91414 | 0 |
+| update | 100 | three+replacement | 223.157 | 29 | 162003 | 467 | 2 | 2 | 15 | 1 | 0 | 8 | 19 | 91539 | 0 |
+latency foreground-update: size=100 profile=three+replacement samples=8 p50=212.388 p95=235.709 p99=235.709 ms
+| contention | 100 | three+replacement | 5222.124 | 895 | 4791188 | 15878 | 60 | 60 | 471 | 30 | 0 | 261 | 591 | 2876538 | 18 |
+latency contended-update: size=100 profile=three+replacement samples=12 p50=456.973 p95=4791.706 p99=4791.706 ms
+uploads size=100 profile=three+replacement: Accounting { committed: Uploads { attempts: 12, objects: 234, bytes: 1138998 }, abandoned: Uploads { attempts: 18, objects: 357, bytes: 1735056 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+| query-key | 100 | replacement-after-writes | 4.690 | 7 | 29853 | 467 | 1 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 100 | replacement-after-writes | 5.126 | 8 | 30128 | 467 | 1 | 1 | 2 | 0 | 1 | 0 | 0 | 0 | 0 |
+| query-full | 100 | replacement-after-writes | 5.160 | 8 | 31154 | 467 | 1 | 1 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+| build-total | 100 | replacement | 915.687 | 291 | 1538941 | 3269 | 74 | 7 | 109 | 68 | 0 | 7 | 89 | 108939 | 0 |
+latency build-chunk: size=100 profile=replacement samples=3 p50=396.005 p95=402.506 p99=402.506 ms
+build complete: size=100 index=primary chunks=3 examined=100 max_chunk=32 source_byte_limit=16777216
+| query-key | 100 | replacement-active | 5.862 | 7 | 29488 | 467 | 1 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 100 | replacement-active | 5.307 | 8 | 29763 | 467 | 1 | 1 | 2 | 0 | 1 | 0 | 0 | 0 | 0 |
+| query-full | 100 | replacement-active | 5.500 | 8 | 30789 | 467 | 1 | 1 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+retained size=100: objects=2357 bytes=9372169; includes history and abandoned preparations
+checkpoint size=100: logical totals Stats { head_reads: 247, object_reads: 4550, range_reads: 4550, bytes_read: 23974435, object_creates: 2357, bytes_written: 9393904, head_cas_attempts: 180, head_cas_successes: 105, head_conflicts: 75, list_calls: 0, delete_calls: 0 }
+| fill | 1000 | zero | 569.305 | 1569 | 7759112 | 1544 | 1551 | 0 | 0 | 0 | 0 | 0 | 39 | 1483268 | 0 |
+latency seed-batch: size=1000 profile=zero samples=4 p50=121.380 p95=197.870 p99=197.870 ms
+| open | 1000 | zero | 5.243 | 1 | 800 | 386 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| update | 1000 | zero | 80.808 | 7 | 62695 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 6 | 33361 | 0 |
+| update | 1000 | zero | 98.916 | 7 | 62945 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 6 | 33486 | 0 |
+| update | 1000 | zero | 101.105 | 7 | 63195 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 6 | 33611 | 0 |
+| update | 1000 | zero | 90.573 | 7 | 63445 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 6 | 33736 | 0 |
+| update | 1000 | zero | 87.637 | 7 | 63695 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 6 | 33861 | 0 |
+| update | 1000 | zero | 91.609 | 7 | 63945 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 6 | 33986 | 0 |
+| update | 1000 | zero | 88.505 | 7 | 64195 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 6 | 34111 | 0 |
+| update | 1000 | zero | 97.386 | 7 | 64445 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 6 | 34236 | 0 |
+latency foreground-update: size=1000 profile=zero samples=8 p50=90.711 p95=101.133 p99=101.133 ms
+| contention | 1000 | zero | 1924.856 | 207 | 1909147 | 12738 | 116 | 0 | 0 | 0 | 0 | 0 | 176 | 1008602 | 17 |
+latency contended-update: size=1000 profile=zero samples=12 p50=177.313 p95=1666.973 p99=1666.973 ms
+uploads size=1000 profile=zero: Accounting { committed: Uploads { attempts: 12, objects: 74, bytes: 419110 }, abandoned: Uploads { attempts: 17, objects: 102, bytes: 587008 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+| build-total | 1000 | initial | 14754.244 | 5421 | 30101807 | 27763 | 2133 | 65 | 1965 | 1000 | 0 | 81 | 1305 | 1515428 | 0 |
+latency build-chunk: size=1000 profile=initial samples=32 p50=463.769 p95=570.889 p99=574.982 ms
+build complete: size=1000 index=primary chunks=32 examined=1000 max_chunk=32 source_byte_limit=16777216
+| open | 1000 | one | 8.363 | 1 | 881 | 467 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-key | 1000 | one | 4.515 | 8 | 36824 | 467 | 2 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 1000 | one | 5.252 | 9 | 37099 | 467 | 2 | 1 | 2 | 0 | 1 | 0 | 0 | 0 | 0 |
+| query-full | 1000 | one | 4.337 | 9 | 38125 | 467 | 2 | 1 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+| update | 1000 | one | 147.609 | 18 | 113522 | 467 | 4 | 2 | 4 | 1 | 0 | 2 | 13 | 58676 | 0 |
+| update | 1000 | one | 156.048 | 18 | 113720 | 467 | 4 | 2 | 4 | 1 | 0 | 2 | 13 | 58774 | 0 |
+| update | 1000 | one | 134.486 | 18 | 113918 | 467 | 4 | 2 | 4 | 1 | 0 | 2 | 13 | 58874 | 0 |
+| update | 1000 | one | 136.165 | 18 | 114116 | 467 | 4 | 2 | 4 | 1 | 0 | 2 | 13 | 58973 | 0 |
+| update | 1000 | one | 146.079 | 18 | 114314 | 467 | 4 | 2 | 4 | 1 | 0 | 2 | 13 | 59072 | 0 |
+| update | 1000 | one | 145.118 | 18 | 114512 | 467 | 4 | 2 | 4 | 1 | 0 | 2 | 13 | 59171 | 0 |
+| update | 1000 | one | 131.393 | 18 | 114710 | 467 | 4 | 2 | 4 | 1 | 0 | 2 | 13 | 59271 | 0 |
+| update | 1000 | one | 133.203 | 19 | 98893 | 467 | 4 | 2 | 4 | 1 | 0 | 2 | 13 | 59397 | 0 |
+latency foreground-update: size=1000 profile=one samples=8 p50=136.207 p95=156.078 p99=156.078 ms
+| contention | 1000 | one | 3536.205 | 562 | 3587206 | 16345 | 124 | 62 | 124 | 31 | 0 | 62 | 403 | 1847808 | 19 |
+latency contended-update: size=1000 profile=one samples=12 p50=378.674 p95=3243.347 p99=3243.347 ms
+uploads size=1000 profile=one: Accounting { committed: Uploads { attempts: 12, objects: 156, bytes: 716070 }, abandoned: Uploads { attempts: 19, objects: 247, bytes: 1129254 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+| query-key | 1000 | one-after-writes | 3.354 | 8 | 36824 | 467 | 2 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 1000 | one-after-writes | 4.637 | 9 | 37099 | 467 | 2 | 1 | 2 | 0 | 1 | 0 | 0 | 0 | 0 |
+| query-full | 1000 | one-after-writes | 4.108 | 9 | 38125 | 467 | 2 | 1 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+| build-total | 1000 | initial | 3758.614 | 5453 | 30407808 | 30355 | 2133 | 65 | 1932 | 1000 | 0 | 76 | 299 | 1325352 | 0 |
+latency build-chunk: size=1000 profile=initial samples=32 p50=116.582 p95=133.765 p99=178.282 ms
+build complete: size=1000 index=rank chunks=32 examined=1000 max_chunk=32 source_byte_limit=16777216
+| build-total | 1000 | initial | 3940.867 | 5551 | 31619577 | 30355 | 2133 | 65 | 1966 | 1000 | 0 | 113 | 335 | 1781805 | 0 |
+latency build-chunk: size=1000 profile=initial samples=32 p50=123.381 p95=139.951 p99=146.875 ms
+build complete: size=1000 index=enabled-rank chunks=32 examined=1000 max_chunk=32 source_byte_limit=16777216
+| open | 1000 | three | 4.288 | 1 | 881 | 467 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-key | 1000 | three | 4.628 | 8 | 37008 | 467 | 2 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 1000 | three | 5.545 | 9 | 37283 | 467 | 2 | 1 | 2 | 0 | 1 | 0 | 0 | 0 | 0 |
+| query-full | 1000 | three | 5.050 | 9 | 38309 | 467 | 2 | 1 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+| update | 1000 | three | 198.453 | 33 | 138499 | 467 | 4 | 2 | 14 | 1 | 0 | 7 | 19 | 84080 | 0 |
+| update | 1000 | three | 199.131 | 32 | 148422 | 467 | 4 | 2 | 13 | 1 | 0 | 7 | 19 | 84233 | 0 |
+| update | 1000 | three | 190.667 | 32 | 148855 | 467 | 4 | 2 | 13 | 1 | 0 | 7 | 19 | 84513 | 0 |
+| update | 1000 | three | 250.252 | 32 | 149289 | 467 | 4 | 2 | 13 | 1 | 0 | 7 | 19 | 84666 | 0 |
+| update | 1000 | three | 188.334 | 32 | 149595 | 467 | 4 | 2 | 13 | 1 | 0 | 7 | 19 | 84819 | 0 |
+| update | 1000 | three | 195.165 | 32 | 150027 | 467 | 4 | 2 | 13 | 1 | 0 | 7 | 19 | 85098 | 0 |
+| update | 1000 | three | 216.941 | 32 | 150459 | 467 | 4 | 2 | 13 | 1 | 0 | 7 | 19 | 85251 | 0 |
+| update | 1000 | three | 200.378 | 32 | 150765 | 467 | 4 | 2 | 13 | 1 | 0 | 7 | 19 | 85404 | 0 |
+latency foreground-update: size=1000 profile=three samples=8 p50=198.489 p95=250.276 p99=250.276 ms
+| contention | 1000 | three | 5268.438 | 985 | 4691514 | 15878 | 120 | 60 | 411 | 30 | 0 | 227 | 599 | 2879975 | 18 |
+latency contended-update: size=1000 profile=three samples=12 p50=524.518 p95=4756.035 p99=4756.035 ms
+uploads size=1000 profile=three: Accounting { committed: Uploads { attempts: 12, objects: 240, bytes: 1174757 }, abandoned: Uploads { attempts: 18, objects: 359, bytes: 1702734 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+| query-key | 1000 | three-after-writes | 4.558 | 8 | 37008 | 467 | 2 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 1000 | three-after-writes | 4.119 | 9 | 37283 | 467 | 2 | 1 | 2 | 0 | 1 | 0 | 0 | 0 | 0 |
+| query-full | 1000 | three-after-writes | 4.194 | 9 | 38309 | 467 | 2 | 1 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+| open | 1000 | three+replacement | 0.204 | 1 | 881 | 467 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-key | 1000 | three+replacement | 4.344 | 8 | 37373 | 467 | 2 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 1000 | three+replacement | 4.364 | 9 | 37648 | 467 | 2 | 1 | 2 | 0 | 1 | 0 | 0 | 0 | 0 |
+| query-full | 1000 | three+replacement | 4.436 | 9 | 38674 | 467 | 2 | 1 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+| update | 1000 | three+replacement | 216.678 | 34 | 168363 | 467 | 4 | 2 | 15 | 1 | 0 | 8 | 21 | 96092 | 0 |
+| update | 1000 | three+replacement | 235.304 | 34 | 171542 | 467 | 4 | 2 | 15 | 1 | 0 | 8 | 21 | 96255 | 0 |
+| update | 1000 | three+replacement | 235.173 | 34 | 172368 | 467 | 4 | 2 | 15 | 1 | 0 | 8 | 21 | 96908 | 0 |
+| update | 1000 | three+replacement | 221.238 | 34 | 173161 | 467 | 4 | 2 | 15 | 1 | 0 | 8 | 21 | 97061 | 0 |
+| update | 1000 | three+replacement | 216.074 | 34 | 173467 | 467 | 4 | 2 | 15 | 1 | 0 | 8 | 21 | 97214 | 0 |
+| update | 1000 | three+replacement | 227.253 | 34 | 173772 | 467 | 4 | 2 | 15 | 1 | 0 | 8 | 21 | 97366 | 0 |
+| update | 1000 | three+replacement | 221.013 | 34 | 174077 | 467 | 4 | 2 | 15 | 1 | 0 | 8 | 21 | 97520 | 0 |
+| update | 1000 | three+replacement | 230.284 | 34 | 165314 | 467 | 4 | 2 | 15 | 1 | 0 | 8 | 21 | 93136 | 0 |
+latency foreground-update: size=1000 profile=three+replacement samples=8 p50=221.277 p95=235.329 p99=235.329 ms
+| contention | 1000 | three+replacement | 6279.160 | 1113 | 6070070 | 16812 | 128 | 64 | 501 | 32 | 0 | 277 | 725 | 3797280 | 20 |
+latency contended-update: size=1000 profile=three+replacement samples=12 p50=676.967 p95=5770.148 p99=5770.148 ms
+uploads size=1000 profile=three+replacement: Accounting { committed: Uploads { attempts: 12, objects: 270, bytes: 1406472 }, abandoned: Uploads { attempts: 20, objects: 455, bytes: 2388324 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+| query-key | 1000 | replacement-after-writes | 4.628 | 8 | 37373 | 467 | 2 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 1000 | replacement-after-writes | 4.064 | 9 | 37648 | 467 | 2 | 1 | 2 | 0 | 1 | 0 | 0 | 0 | 0 |
+| query-full | 1000 | replacement-after-writes | 4.386 | 9 | 38674 | 467 | 2 | 1 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+| build-total | 1000 | replacement | 13184.007 | 5438 | 30218518 | 29421 | 2067 | 63 | 1965 | 968 | 0 | 80 | 1262 | 1768123 | 0 |
+latency build-chunk: size=1000 profile=replacement samples=31 p50=436.439 p95=461.674 p99=463.307 ms
+build complete: size=1000 index=primary chunks=31 examined=1000 max_chunk=32 source_byte_limit=16777216
+| query-key | 1000 | replacement-active | 4.717 | 8 | 37008 | 467 | 2 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 1000 | replacement-active | 5.287 | 9 | 37283 | 467 | 2 | 1 | 2 | 0 | 1 | 0 | 0 | 0 | 0 |
+| query-full | 1000 | replacement-active | 4.078 | 9 | 38309 | 467 | 2 | 1 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+retained size=1000: objects=8054 bytes=29065387; includes history and abandoned preparations
+checkpoint size=1000: logical totals Stats { head_reads: 607, object_reads: 31956, range_reads: 31956, bytes_read: 175934811, object_creates: 8054, bytes_written: 29132455, head_cas_attempts: 473, head_cas_successes: 324, head_conflicts: 149, list_calls: 0, delete_calls: 0 }
+| fill | 10000 | zero | 5426.701 | 18327 | 113395776 | 13896 | 18072 | 0 | 0 | 0 | 0 | 0 | 399 | 15073575 | 0 |
+latency seed-batch: size=10000 profile=zero samples=36 p50=146.391 p95=193.359 p99=202.767 ms
+| open | 10000 | zero | 3.406 | 1 | 800 | 386 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| update | 10000 | zero | 72.089 | 10 | 72021 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 7 | 37966 | 0 |
+| update | 10000 | zero | 84.258 | 10 | 72327 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 7 | 38119 | 0 |
+| update | 10000 | zero | 90.121 | 10 | 72883 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 7 | 38522 | 0 |
+| update | 10000 | zero | 78.179 | 10 | 83809 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 7 | 49046 | 0 |
+| update | 10000 | zero | 87.183 | 9 | 94313 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 7 | 49172 | 0 |
+| update | 10000 | zero | 101.311 | 9 | 94565 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 7 | 49298 | 0 |
+| update | 10000 | zero | 69.086 | 9 | 94817 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 7 | 49424 | 0 |
+| update | 10000 | zero | 56.264 | 9 | 95069 | 386 | 4 | 0 | 0 | 0 | 0 | 0 | 7 | 49550 | 0 |
+latency foreground-update: size=10000 profile=zero samples=8 p50=78.203 p95=101.370 p99=101.370 ms
+| contention | 10000 | zero | 1857.218 | 314 | 2255202 | 13510 | 124 | 0 | 0 | 0 | 0 | 0 | 217 | 1185004 | 19 |
+latency contended-update: size=10000 profile=zero samples=12 p50=192.734 p95=1676.111 p99=1676.111 ms
+uploads size=10000 profile=zero: Accounting { committed: Uploads { attempts: 12, objects: 84, bytes: 463217 }, abandoned: Uploads { attempts: 19, objects: 133, bytes: 719303 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+progress: initial size=10000 index=primary examined=8192 chunks=256
+| build-total | 10000 | initial | 199023.181 | 62166 | 533779071 | 267456 | 21329 | 627 | 27585 | 10000 | 0 | 2567 | 14579 | 35360148 | 0 |
+latency build-chunk: size=10000 profile=initial samples=313 p50=499.249 p95=1486.890 p99=1659.253 ms
+build complete: size=10000 index=primary chunks=313 examined=10000 max_chunk=32 source_byte_limit=16777216
+| open | 10000 | one | 12.626 | 1 | 881 | 467 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-key | 10000 | one | 5.910 | 23 | 223125 | 467 | 16 | 1 | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 10000 | one | 9.458 | 31 | 225325 | 467 | 16 | 1 | 3 | 0 | 8 | 0 | 0 | 0 | 0 |
+| query-full | 10000 | one | 18.920 | 31 | 233533 | 467 | 16 | 1 | 3 | 8 | 0 | 0 | 0 | 0 | 0 |
+| update | 10000 | one | 221.958 | 21 | 139916 | 467 | 4 | 2 | 6 | 1 | 0 | 3 | 13 | 71666 | 0 |
+| update | 10000 | one | 251.226 | 21 | 140222 | 467 | 4 | 2 | 6 | 1 | 0 | 3 | 13 | 71819 | 0 |
+| update | 10000 | one | 255.977 | 21 | 140528 | 467 | 4 | 2 | 6 | 1 | 0 | 3 | 13 | 71972 | 0 |
+| update | 10000 | one | 255.799 | 21 | 140833 | 467 | 4 | 2 | 6 | 1 | 0 | 3 | 13 | 72124 | 0 |
+| update | 10000 | one | 255.124 | 21 | 141138 | 467 | 4 | 2 | 6 | 1 | 0 | 3 | 13 | 72278 | 0 |
+| update | 10000 | one | 251.980 | 21 | 140190 | 467 | 4 | 2 | 6 | 1 | 0 | 3 | 13 | 72431 | 0 |
+| update | 10000 | one | 272.243 | 21 | 141752 | 467 | 4 | 2 | 6 | 1 | 0 | 3 | 13 | 72584 | 0 |
+| update | 10000 | one | 272.525 | 21 | 142058 | 467 | 4 | 2 | 6 | 1 | 0 | 3 | 13 | 72737 | 0 |
+latency foreground-update: size=10000 profile=one samples=8 p50=255.223 p95=272.805 p99=272.805 ms
+| contention | 10000 | one | 4260.686 | 634 | 4193444 | 15878 | 120 | 60 | 180 | 30 | 0 | 90 | 390 | 2142834 | 18 |
+latency contended-update: size=10000 profile=one samples=12 p50=391.593 p95=3789.852 p99=3789.852 ms
+uploads size=10000 profile=one: Accounting { committed: Uploads { attempts: 12, objects: 156, bytes: 859038 }, abandoned: Uploads { attempts: 18, objects: 234, bytes: 1281312 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+| query-key | 10000 | one-after-writes | 5.670 | 23 | 223125 | 467 | 16 | 1 | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 10000 | one-after-writes | 5.935 | 31 | 225325 | 467 | 16 | 1 | 3 | 0 | 8 | 0 | 0 | 0 | 0 |
+| query-full | 10000 | one-after-writes | 5.970 | 31 | 233533 | 467 | 16 | 1 | 3 | 8 | 0 | 0 | 0 | 0 | 0 |
+progress: initial size=10000 index=rank examined=8192 chunks=256
+| build-total | 10000 | initial | 55391.843 | 55679 | 442325207 | 292809 | 21329 | 627 | 20494 | 10000 | 0 | 756 | 2715 | 14578878 | 0 |
+latency build-chunk: size=10000 profile=initial samples=313 p50=178.762 p95=208.817 p99=234.380 ms
+build complete: size=10000 index=rank chunks=313 examined=10000 max_chunk=32 source_byte_limit=16777216
+progress: initial size=10000 index=enabled-rank examined=8192 chunks=256
+| build-total | 10000 | initial | 73263.949 | 56965 | 455091080 | 292809 | 21329 | 627 | 20876 | 10000 | 0 | 1145 | 3382 | 20496662 | 0 |
+latency build-chunk: size=10000 profile=initial samples=313 p50=217.247 p95=555.281 p99=779.794 ms
+build complete: size=10000 index=enabled-rank chunks=313 examined=10000 max_chunk=32 source_byte_limit=16777216
+| open | 10000 | three | 4.204 | 1 | 881 | 467 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-key | 10000 | three | 5.460 | 23 | 223309 | 467 | 16 | 1 | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 10000 | three | 6.483 | 31 | 225509 | 467 | 16 | 1 | 3 | 0 | 8 | 0 | 0 | 0 | 0 |
+| query-full | 10000 | three | 5.318 | 31 | 233717 | 467 | 16 | 1 | 3 | 8 | 0 | 0 | 0 | 0 | 0 |
+| update | 10000 | three | 223.166 | 36 | 227358 | 467 | 4 | 2 | 15 | 1 | 0 | 7 | 20 | 115599 | 0 |
+| update | 10000 | three | 235.207 | 36 | 237506 | 467 | 4 | 2 | 15 | 1 | 0 | 7 | 20 | 125395 | 0 |
+| update | 10000 | three | 210.628 | 35 | 247374 | 467 | 4 | 2 | 14 | 1 | 0 | 7 | 20 | 125628 | 0 |
+| update | 10000 | three | 217.393 | 35 | 247840 | 467 | 4 | 2 | 14 | 1 | 0 | 7 | 20 | 125861 | 0 |
+| update | 10000 | three | 226.390 | 35 | 248306 | 467 | 4 | 2 | 14 | 1 | 0 | 7 | 20 | 126094 | 0 |
+| update | 10000 | three | 259.436 | 35 | 264015 | 467 | 4 | 2 | 14 | 1 | 0 | 7 | 21 | 141725 | 0 |
+| update | 10000 | three | 243.274 | 35 | 263421 | 467 | 4 | 2 | 14 | 1 | 0 | 7 | 21 | 141852 | 0 |
+| update | 10000 | three | 252.797 | 35 | 263675 | 467 | 4 | 2 | 14 | 1 | 0 | 7 | 21 | 141979 | 0 |
+latency foreground-update: size=10000 profile=three samples=8 p50=226.489 p95=259.773 p99=259.773 ms
+| contention | 10000 | three | 5797.296 | 1151 | 8687555 | 17279 | 132 | 66 | 487 | 33 | 0 | 240 | 669 | 4517795 | 21 |
+latency contended-update: size=10000 profile=three samples=12 p50=640.182 p95=5290.527 p99=5290.527 ms
+uploads size=10000 profile=three: Accounting { committed: Uploads { attempts: 12, objects: 245, bytes: 1682212 }, abandoned: Uploads { attempts: 21, objects: 424, bytes: 2833099 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+| query-key | 10000 | three-after-writes | 8.036 | 23 | 223309 | 467 | 16 | 1 | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 10000 | three-after-writes | 6.716 | 31 | 225509 | 467 | 16 | 1 | 3 | 0 | 8 | 0 | 0 | 0 | 0 |
+| query-full | 10000 | three-after-writes | 5.642 | 31 | 233717 | 467 | 16 | 1 | 3 | 8 | 0 | 0 | 0 | 0 | 0 |
+| open | 10000 | three+replacement | 10.360 | 1 | 881 | 467 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-key | 10000 | three+replacement | 18.326 | 23 | 223674 | 467 | 16 | 1 | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 10000 | three+replacement | 26.732 | 31 | 225874 | 467 | 16 | 1 | 3 | 0 | 8 | 0 | 0 | 0 | 0 |
+| query-full | 10000 | three+replacement | 24.132 | 31 | 234082 | 467 | 16 | 1 | 3 | 8 | 0 | 0 | 0 | 0 | 0 |
+| update | 10000 | three+replacement | 382.363 | 37 | 285256 | 467 | 4 | 2 | 16 | 1 | 0 | 8 | 23 | 153525 | 0 |
+| update | 10000 | three+replacement | 316.715 | 37 | 286106 | 467 | 4 | 2 | 16 | 1 | 0 | 8 | 23 | 153652 | 0 |
+| update | 10000 | three+replacement | 267.612 | 37 | 286360 | 467 | 4 | 2 | 16 | 1 | 0 | 8 | 23 | 153779 | 0 |
+| update | 10000 | three+replacement | 235.655 | 37 | 286614 | 467 | 4 | 2 | 16 | 1 | 0 | 8 | 23 | 153906 | 0 |
+| update | 10000 | three+replacement | 238.506 | 37 | 286868 | 467 | 4 | 2 | 16 | 1 | 0 | 8 | 23 | 154033 | 0 |
+| update | 10000 | three+replacement | 255.839 | 37 | 287122 | 467 | 4 | 2 | 16 | 1 | 0 | 8 | 23 | 154160 | 0 |
+| update | 10000 | three+replacement | 243.649 | 37 | 287376 | 467 | 4 | 2 | 16 | 1 | 0 | 8 | 23 | 154287 | 0 |
+| update | 10000 | three+replacement | 239.082 | 37 | 287630 | 467 | 4 | 2 | 16 | 1 | 0 | 8 | 23 | 154414 | 0 |
+latency foreground-update: size=10000 profile=three+replacement samples=8 p50=243.678 p95=382.411 p99=382.411 ms
+| contention | 10000 | three+replacement | 6960.262 | 1177 | 9442096 | 16812 | 128 | 64 | 533 | 32 | 0 | 277 | 725 | 4963021 | 20 |
+latency contended-update: size=10000 profile=three+replacement samples=12 p50=720.293 p95=6397.317 p99=6397.317 ms
+uploads size=10000 profile=three+replacement: Accounting { committed: Uploads { attempts: 12, objects: 270, bytes: 1843542 }, abandoned: Uploads { attempts: 20, objects: 455, bytes: 3116995 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+| query-key | 10000 | replacement-after-writes | 5.802 | 23 | 223674 | 467 | 16 | 1 | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 10000 | replacement-after-writes | 24.132 | 31 | 225874 | 467 | 16 | 1 | 3 | 0 | 8 | 0 | 0 | 0 | 0 |
+| query-full | 10000 | replacement-after-writes | 9.373 | 31 | 234082 | 467 | 16 | 1 | 3 | 8 | 0 | 0 | 0 | 0 | 0 |
+progress: replacement size=10000 index=primary examined=8224 chunks=256
+| build-total | 10000 | replacement | 176858.464 | 63849 | 534481370 | 291875 | 21263 | 625 | 27491 | 9968 | 0 | 2570 | 14821 | 36447392 | 0 |
+latency build-chunk: size=10000 profile=replacement samples=312 p50=558.649 p95=719.377 p99=787.774 ms
+build complete: size=10000 index=primary chunks=312 examined=10000 max_chunk=32 source_byte_limit=16777216
+| query-key | 10000 | replacement-active | 7.562 | 23 | 223190 | 467 | 16 | 1 | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 10000 | replacement-active | 17.305 | 31 | 225390 | 467 | 16 | 1 | 3 | 0 | 8 | 0 | 0 | 0 | 0 |
+| query-full | 10000 | replacement-active | 13.299 | 31 | 233598 | 467 | 16 | 1 | 3 | 8 | 0 | 0 | 0 | 0 | 0 |
+retained size=10000: objects=46545 bytes=167011261; includes history and abandoned preparations
+checkpoint size=10000: logical totals Stats { head_reads: 2127, object_reads: 293837, range_reads: 293837, bytes_read: 2291697169, object_creates: 46545, bytes_written: 167362954, head_cas_attempts: 1926, head_cas_successes: 1699, head_conflicts: 227, list_calls: 0, delete_calls: 0 }
+| fill | 100000 | zero | 76464.480 | 261828 | 1564868414 | 135872 | 258575 | 0 | 0 | 0 | 0 | 0 | 4927 | 161039216 | 0 |
+latency seed-batch: size=100000 profile=zero samples=352 p50=208.226 p95=295.075 p99=360.542 ms
+| open | 100000 | zero | 4.220 | 1 | 800 | 386 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| update | 100000 | zero | 96.910 | 15 | 78329 | 386 | 6 | 0 | 0 | 0 | 0 | 0 | 9 | 41098 | 0 |
+| update | 100000 | zero | 108.348 | 15 | 78837 | 386 | 6 | 0 | 0 | 0 | 0 | 0 | 9 | 41351 | 0 |
+| update | 100000 | zero | 102.091 | 15 | 79343 | 386 | 6 | 0 | 0 | 0 | 0 | 0 | 9 | 41604 | 0 |
+| update | 100000 | zero | 99.823 | 15 | 79848 | 386 | 6 | 0 | 0 | 0 | 0 | 0 | 9 | 41856 | 0 |
+| update | 100000 | zero | 100.695 | 15 | 80351 | 386 | 6 | 0 | 0 | 0 | 0 | 0 | 9 | 42108 | 0 |
+| update | 100000 | zero | 109.196 | 15 | 80859 | 386 | 6 | 0 | 0 | 0 | 0 | 0 | 9 | 42364 | 0 |
+| update | 100000 | zero | 99.143 | 15 | 81371 | 386 | 6 | 0 | 0 | 0 | 0 | 0 | 9 | 42618 | 0 |
+| update | 100000 | zero | 107.392 | 15 | 81879 | 386 | 6 | 0 | 0 | 0 | 0 | 0 | 9 | 42872 | 0 |
+latency foreground-update: size=100000 profile=zero samples=8 p50=100.725 p95=109.223 p99=109.223 ms
+| contention | 100000 | zero | 2782.129 | 433 | 4296473 | 14282 | 198 | 0 | 0 | 0 | 0 | 0 | 297 | 2209395 | 21 |
+latency contended-update: size=100000 profile=zero samples=12 p50=248.687 p95=2514.820 p99=2514.820 ms
+uploads size=100000 profile=zero: Accounting { committed: Uploads { attempts: 12, objects: 108, bytes: 804894 }, abandoned: Uploads { attempts: 21, objects: 189, bytes: 1402017 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+progress: initial size=100000 index=primary examined=8192 chunks=256
+progress: initial size=100000 index=primary examined=16384 chunks=512
+progress: initial size=100000 index=primary examined=24576 chunks=768
+progress: initial size=100000 index=primary examined=32768 chunks=1024
+progress: initial size=100000 index=primary examined=40960 chunks=1280
+progress: initial size=100000 index=primary examined=49152 chunks=1536
+progress: initial size=100000 index=primary examined=57344 chunks=1792
+progress: initial size=100000 index=primary examined=65536 chunks=2048
+progress: initial size=100000 index=primary examined=73728 chunks=2304
+progress: initial size=100000 index=primary examined=81920 chunks=2560
+progress: initial size=100000 index=primary examined=90112 chunks=2816
+progress: initial size=100000 index=primary examined=98304 chunks=3072
+| build-total | 100000 | initial | 2944868.047 | 906981 | 8491693071 | 2666092 | 319554 | 6251 | 448832 | 100000 | 0 | 139485 | 262482 | 1375333788 | 0 |
+latency build-chunk: size=100000 profile=initial samples=3125 p50=909.370 p95=1372.932 p99=1968.167 ms
+build complete: size=100000 index=primary chunks=3125 examined=100000 max_chunk=32 source_byte_limit=16777216
+| open | 100000 | one | 4.253 | 1 | 881 | 467 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-key | 100000 | one | 6.797 | 32 | 273584 | 467 | 24 | 1 | 4 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 100000 | one | 5.874 | 40 | 275784 | 467 | 24 | 1 | 4 | 0 | 8 | 0 | 0 | 0 | 0 |
+| query-full | 100000 | one | 5.959 | 40 | 283992 | 467 | 24 | 1 | 4 | 8 | 0 | 0 | 0 | 0 | 0 |
+| update | 100000 | one | 182.694 | 28 | 194113 | 467 | 6 | 2 | 8 | 1 | 0 | 4 | 16 | 98742 | 0 |
+| update | 100000 | one | 177.851 | 28 | 194617 | 467 | 6 | 2 | 8 | 1 | 0 | 4 | 16 | 98994 | 0 |
+| update | 100000 | one | 178.609 | 28 | 195120 | 467 | 6 | 2 | 8 | 1 | 0 | 4 | 16 | 99245 | 0 |
+| update | 100000 | one | 169.644 | 28 | 195623 | 467 | 6 | 2 | 8 | 1 | 0 | 4 | 16 | 99497 | 0 |
+| update | 100000 | one | 184.779 | 28 | 196127 | 467 | 6 | 2 | 8 | 1 | 0 | 4 | 16 | 99749 | 0 |
+| update | 100000 | one | 175.741 | 28 | 196630 | 467 | 6 | 2 | 8 | 1 | 0 | 4 | 16 | 100000 | 0 |
+| update | 100000 | one | 191.699 | 28 | 197135 | 467 | 6 | 2 | 8 | 1 | 0 | 4 | 16 | 100254 | 0 |
+| update | 100000 | one | 174.672 | 28 | 197643 | 467 | 6 | 2 | 8 | 1 | 0 | 4 | 16 | 100507 | 0 |
+latency foreground-update: size=100000 profile=one samples=8 p50=177.881 p95=191.734 p99=191.734 ms
+| contention | 100000 | one | 4673.946 | 893 | 6361566 | 16812 | 192 | 64 | 256 | 32 | 0 | 128 | 512 | 3234622 | 20 |
+latency contended-update: size=100000 profile=one samples=12 p50=515.816 p95=4305.604 p99=4305.604 ms
+uploads size=100000 profile=one: Accounting { committed: Uploads { attempts: 12, objects: 192, bytes: 1235368 }, abandoned: Uploads { attempts: 20, objects: 320, bytes: 1996770 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+| query-key | 100000 | one-after-writes | 5.677 | 32 | 273584 | 467 | 24 | 1 | 4 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 100000 | one-after-writes | 6.682 | 40 | 275784 | 467 | 24 | 1 | 4 | 0 | 8 | 0 | 0 | 0 | 0 |
+| query-full | 100000 | one-after-writes | 6.032 | 40 | 283992 | 467 | 24 | 1 | 4 | 8 | 0 | 0 | 0 | 0 | 0 |
+progress: initial size=100000 index=rank examined=8192 chunks=256
+progress: initial size=100000 index=rank examined=16384 chunks=512
+progress: initial size=100000 index=rank examined=24576 chunks=768
+progress: initial size=100000 index=rank examined=32768 chunks=1024
+progress: initial size=100000 index=rank examined=40960 chunks=1280
+progress: initial size=100000 index=rank examined=49152 chunks=1536
+progress: initial size=100000 index=rank examined=57344 chunks=1792
+progress: initial size=100000 index=rank examined=65536 chunks=2048
+progress: initial size=100000 index=rank examined=73728 chunks=2304
+progress: initial size=100000 index=rank examined=81920 chunks=2560
+progress: initial size=100000 index=rank examined=90112 chunks=2816
+progress: initial size=100000 index=rank examined=98304 chunks=3072
+| build-total | 100000 | initial | 567159.860 | 763049 | 5558939002 | 2919217 | 319554 | 6251 | 298617 | 100000 | 0 | 11274 | 34267 | 191944824 | 0 |
+latency build-chunk: size=100000 profile=initial samples=3125 p50=150.758 p95=341.990 p99=482.239 ms
+build complete: size=100000 index=rank chunks=3125 examined=100000 max_chunk=32 source_byte_limit=16777216
+progress: initial size=100000 index=enabled-rank examined=8192 chunks=256
+progress: initial size=100000 index=enabled-rank examined=16384 chunks=512
+progress: initial size=100000 index=enabled-rank examined=24576 chunks=768
+progress: initial size=100000 index=enabled-rank examined=32768 chunks=1024
+progress: initial size=100000 index=enabled-rank examined=40960 chunks=1280
+progress: initial size=100000 index=enabled-rank examined=49152 chunks=1536
+progress: initial size=100000 index=enabled-rank examined=57344 chunks=1792
+progress: initial size=100000 index=enabled-rank examined=65536 chunks=2048
+progress: initial size=100000 index=enabled-rank examined=73728 chunks=2304
+progress: initial size=100000 index=enabled-rank examined=81920 chunks=2560
+progress: initial size=100000 index=enabled-rank examined=90112 chunks=2816
+progress: initial size=100000 index=enabled-rank examined=98304 chunks=3072
+| build-total | 100000 | initial | 521439.823 | 777554 | 5873346778 | 2919217 | 319554 | 6251 | 306890 | 100000 | 0 | 18826 | 41933 | 277730674 | 0 |
+latency build-chunk: size=100000 profile=initial samples=3125 p50=164.352 p95=204.624 p99=244.624 ms
+build complete: size=100000 index=enabled-rank chunks=3125 examined=100000 max_chunk=32 source_byte_limit=16777216
+| open | 100000 | three | 4.419 | 1 | 881 | 467 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-key | 100000 | three | 6.166 | 32 | 273768 | 467 | 24 | 1 | 4 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 100000 | three | 6.625 | 40 | 275968 | 467 | 24 | 1 | 4 | 0 | 8 | 0 | 0 | 0 | 0 |
+| query-full | 100000 | three | 6.478 | 40 | 284176 | 467 | 24 | 1 | 4 | 8 | 0 | 0 | 0 | 0 | 0 |
+| update | 100000 | three | 267.746 | 48 | 233771 | 467 | 6 | 2 | 24 | 1 | 0 | 10 | 24 | 130999 | 0 |
+| update | 100000 | three | 247.951 | 46 | 279375 | 467 | 6 | 2 | 22 | 1 | 0 | 10 | 24 | 151567 | 0 |
+| update | 100000 | three | 266.668 | 44 | 299877 | 467 | 6 | 2 | 20 | 1 | 0 | 10 | 24 | 151821 | 0 |
+| update | 100000 | three | 256.825 | 44 | 300406 | 467 | 6 | 2 | 20 | 1 | 0 | 10 | 24 | 152096 | 0 |
+| update | 100000 | three | 266.436 | 44 | 300947 | 467 | 6 | 2 | 20 | 1 | 0 | 10 | 24 | 152351 | 0 |
+| update | 100000 | three | 276.756 | 44 | 301448 | 467 | 6 | 2 | 20 | 1 | 0 | 10 | 24 | 152608 | 0 |
+| update | 100000 | three | 245.948 | 44 | 301953 | 467 | 6 | 2 | 20 | 1 | 0 | 10 | 24 | 152854 | 0 |
+| update | 100000 | three | 272.548 | 44 | 302455 | 467 | 6 | 2 | 20 | 1 | 0 | 10 | 24 | 153115 | 0 |
+latency foreground-update: size=100000 profile=three samples=8 p50=266.462 p95=276.783 p99=276.783 ms
+| contention | 100000 | three | 6809.681 | 1410 | 9225366 | 16345 | 186 | 62 | 662 | 31 | 0 | 338 | 772 | 4927076 | 19 |
+latency contended-update: size=100000 profile=three samples=12 p50=741.546 p95=6234.348 p99=6234.348 ms
+uploads size=100000 profile=three: Accounting { committed: Uploads { attempts: 12, objects: 299, bytes: 1941977 }, abandoned: Uploads { attempts: 19, objects: 473, bytes: 2982615 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+| query-key | 100000 | three-after-writes | 7.362 | 32 | 273768 | 467 | 24 | 1 | 4 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 100000 | three-after-writes | 6.389 | 40 | 275968 | 467 | 24 | 1 | 4 | 0 | 8 | 0 | 0 | 0 | 0 |
+| query-full | 100000 | three-after-writes | 6.012 | 40 | 284176 | 467 | 24 | 1 | 4 | 8 | 0 | 0 | 0 | 0 | 0 |
+| open | 100000 | three+replacement | 9.579 | 1 | 881 | 467 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-key | 100000 | three+replacement | 6.197 | 32 | 274133 | 467 | 24 | 1 | 4 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 100000 | three+replacement | 5.952 | 40 | 276333 | 467 | 24 | 1 | 4 | 0 | 8 | 0 | 0 | 0 | 0 |
+| query-full | 100000 | three+replacement | 6.005 | 40 | 284541 | 467 | 24 | 1 | 4 | 8 | 0 | 0 | 0 | 0 | 0 |
+| update | 100000 | three+replacement | 288.913 | 46 | 320057 | 467 | 6 | 2 | 22 | 1 | 0 | 11 | 26 | 162662 | 0 |
+| update | 100000 | three+replacement | 281.633 | 46 | 321160 | 467 | 6 | 2 | 22 | 1 | 0 | 11 | 26 | 162915 | 0 |
+| update | 100000 | three+replacement | 278.886 | 46 | 321920 | 467 | 6 | 2 | 22 | 1 | 0 | 11 | 26 | 163421 | 0 |
+| update | 100000 | three+replacement | 277.054 | 46 | 322668 | 467 | 6 | 2 | 22 | 1 | 0 | 11 | 26 | 163674 | 0 |
+| update | 100000 | three+replacement | 297.299 | 46 | 323421 | 467 | 6 | 2 | 22 | 1 | 0 | 11 | 26 | 164173 | 0 |
+| update | 100000 | three+replacement | 279.711 | 46 | 324167 | 467 | 6 | 2 | 22 | 1 | 0 | 11 | 26 | 164425 | 0 |
+| update | 100000 | three+replacement | 284.695 | 46 | 324671 | 467 | 6 | 2 | 22 | 1 | 0 | 11 | 26 | 164677 | 0 |
+| update | 100000 | three+replacement | 280.798 | 46 | 325176 | 467 | 6 | 2 | 22 | 1 | 0 | 11 | 26 | 164930 | 0 |
+latency foreground-update: size=100000 profile=three+replacement samples=8 p50=280.833 p95=297.324 p99=297.324 ms
+| contention | 100000 | three+replacement | 7509.908 | 1441 | 10820599 | 16345 | 186 | 62 | 724 | 31 | 0 | 383 | 853 | 5860430 | 19 |
+latency contended-update: size=100000 profile=three+replacement samples=12 p50=876.338 p95=6885.398 p99=6885.398 ms
+uploads size=100000 profile=three+replacement: Accounting { committed: Uploads { attempts: 12, objects: 328, bytes: 2257527 }, abandoned: Uploads { attempts: 19, objects: 525, bytes: 3600419 }, unclassified: Uploads { attempts: 0, objects: 0, bytes: 0 }, pending: Uploads { attempts: 0, objects: 0, bytes: 0 } }; successful_head_bytes=2484
+| query-key | 100000 | replacement-after-writes | 5.728 | 32 | 274133 | 467 | 24 | 1 | 4 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 100000 | replacement-after-writes | 5.350 | 40 | 276333 | 467 | 24 | 1 | 4 | 0 | 8 | 0 | 0 | 0 | 0 |
+| query-full | 100000 | replacement-after-writes | 5.378 | 40 | 284541 | 467 | 24 | 1 | 4 | 8 | 0 | 0 | 0 | 0 | 0 |
+progress: replacement size=100000 index=primary examined=8224 chunks=256
+progress: replacement size=100000 index=primary examined=16416 chunks=512
+progress: replacement size=100000 index=primary examined=24608 chunks=768
+progress: replacement size=100000 index=primary examined=32800 chunks=1024
+progress: replacement size=100000 index=primary examined=40992 chunks=1280
+progress: replacement size=100000 index=primary examined=49184 chunks=1536
+progress: replacement size=100000 index=primary examined=57376 chunks=1792
+progress: replacement size=100000 index=primary examined=65568 chunks=2048
+progress: replacement size=100000 index=primary examined=73760 chunks=2304
+progress: replacement size=100000 index=primary examined=81952 chunks=2560
+progress: replacement size=100000 index=primary examined=90144 chunks=2816
+progress: replacement size=100000 index=primary examined=98336 chunks=3072
+| build-total | 100000 | replacement | 3034985.304 | 920008 | 8491725234 | 2918283 | 319455 | 6249 | 449454 | 99968 | 0 | 139245 | 262229 | 1370786351 | 0 |
+latency build-chunk: size=100000 profile=replacement samples=3124 p50=897.428 p95=1456.257 p99=2082.702 ms
+build complete: size=100000 index=primary chunks=3124 examined=100000 max_chunk=32 source_byte_limit=16777216
+| query-key | 100000 | replacement-active | 7.013 | 32 | 274363 | 467 | 24 | 1 | 4 | 0 | 0 | 0 | 0 | 0 | 0 |
+| query-covered | 100000 | replacement-active | 5.785 | 40 | 276563 | 467 | 24 | 1 | 4 | 0 | 8 | 0 | 0 | 0 | 0 |
+| query-full | 100000 | replacement-active | 5.935 | 40 | 284771 | 467 | 24 | 1 | 4 | 8 | 0 | 0 | 0 | 0 | 0 |
+retained size=100000: objects=655511 bytes=3561241698; includes history and abandoned preparations
+checkpoint size=100000: logical totals Stats { head_reads: 15212, object_reads: 3929535, range_reads: 3929535, bytes_read: 32317419843, object_creates: 655511, bytes_written: 3564271764, head_cas_attempts: 14944, head_cas_successes: 14638, head_conflicts: 306, list_calls: 0, delete_calls: 0 }
