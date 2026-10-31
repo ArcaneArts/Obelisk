@@ -595,7 +595,7 @@ edit. A maximum-index safety case atomically maintains 16 active definitions plu
 building replacement, rejects a 17th definition before uploads, and verifies every
 active result and the replacement's eventual activation.
 
-Local checks: **107 workspace tests passed, five ignored**. All six required checks,
+Local checks: **108 workspace tests passed, five ignored**. All six required checks,
 folder-only/S3-only example builds and focused structural checks passed. The release
 capacity gate ran separately and passed in 193.67 seconds: 100,000 live documents,
 91,200,000 live location key/value bytes, a 386-byte v3 root, five location pages for
@@ -611,3 +611,14 @@ contended updates, logical IO, and successful/abandoned uploads. Do not mark cyc
 18 or the Task complete until the full matrix, final audit and independent PR merge
 are finished. Actual-AWS bucket/prefix and custom emulator endpoint configuration
 were absent; those external gates remain open. Hardware power loss is unverified.
+
+
+The acceptance audit added a forced non-final chunk/write conflict: the prepared
+chunk loses CAS to one batch updating its current and unscanned paths, deleting a
+source path and inserting a post-base path. Retry persists only current entries,
+remains Building, counts the deleted source path on later steps, and activates with
+the correct complete result. Replaying the original step after activation preserves
+its original Building receipt. The focused case and all required checks pass.
+The maximum-index workload also passed separately in release mode in 5.94 seconds.
+The full release matrix remains running at 100,000 documents; no completion claim
+is made from partial output.

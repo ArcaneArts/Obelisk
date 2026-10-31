@@ -272,3 +272,18 @@ capacity beyond the former manifest bound, and current small-operation costs.
 Optional `diagnostics::InstrumentedMetadata` counters distinguish metadata families
 from payload reads; they measure logical bytes, not HTTP requests or allocator RSS.
 Actual AWS S3 qualification still requires external bucket/prefix configuration.
+
+
+For the scalar-index release matrix, run the separate opt-in workload:
+
+```sh
+OBELISK_BASELINE_BACKEND=folder cargo run --release -p obelisk --example index_scaling --locked
+```
+
+It grows one dataset through 100, 1,000, 10,000 and 100,000 documents and measures
+zero/one/three active indexes plus a building replacement, including bounded builds,
+selective covered/full reads, serial updates, contended publication and abandoned
+uploads. `OBELISK_INDEX_SCALING_MAX` can lower the largest checkpoint for a smoke run;
+only the complete run qualifies the full matrix. See BASELINE.md for methodology,
+recorded evidence and limits. This uses disposable local data; S3 prefixes remain
+retained and require explicit external configuration.

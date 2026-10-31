@@ -349,3 +349,41 @@ first produced five payload reads for three results; it now reads each full payl
 once by conservatively deferring the next record before fetching it. These are
 correctness/work assertions on disposable POSIX folders, not release timings or
 physical HTTP costs. The full v3 release matrix and capacity rerun remain cycle 18.
+
+
+## Scalar release matrix methodology (cycle 18)
+
+The `index_scaling` example uses one growing v3 database with 1,024 binary payload
+bytes plus integer bucket/rank, boolean enabled and a string label. Seed batches
+contain at most 256 documents. Each size measures zero indexes, one bucket/rank
+index covering label, three active indexes, and those three with a building
+replacement of the covering generation. The other indexes order rank and
+(enabled, rank). Each initial index builds completely; replacement measurement
+first commits 32 examined paths, measures concurrent foreground work while it is
+Building, then finishes the replacement. Build calls cap examined paths at 32
+and source payload at 16 MiB. Root-only opening, eight-result selective key/covered/
+full queries and exact path/rank expectations are asserted at each applicable phase.
+
+Each profile includes eight key-changing serial document replacements and four
+independent engine instances doing three replacements each. Writer-local upload
+accounting classifies immutable preparations by subsequent CAS success/conflict,
+reconciles those totals with adapter counters, and requires zero pending or
+unclassified uploads. Index drops before the next size retain history. The dataset
+and request history grow together; this is not a set of identical fresh databases.
+Counters describe logical adapter operations and bytes including HEAD, not physical
+HTTP requests or allocator RSS. OS caches are not flushed. Small sample percentile
+summaries are observations, not universal targets or regression thresholds.
+
+The current full command is:
+
+```sh
+cargo run --release -p obelisk --example index_scaling --locked
+```
+
+The run defaults to the folder backend and a 100,000-document final checkpoint.
+It is still in progress; final measurements and the acceptance summary will be
+recorded after successful completion. The 100,000-document old-manifest-capacity
+rerun already passed separately with a 386-byte populated root. Completed partial
+matrix checkpoints use a 467-byte populated root when a catalog is present, with
+no catalog/entry/document tree reads during opening. Historical v2 byte counts
+above retain their original scope.

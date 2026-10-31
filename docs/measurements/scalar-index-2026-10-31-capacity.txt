@@ -65,4 +65,3 @@ capacity verified: 100000 live documents; 91200000 live location key/value bytes
 test qualification_tests::paged_capacity_exceeds_the_old_manifest_limit ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 71 filtered out; finished in 193.67s
-

@@ -1,0 +1,8 @@
+   Compiling obelisk-engine v0.1.0 (/Users/cyberpwn/development/workspace/ArcaneArts/Cantrip/.cantrip/dev/worker/worktrees/cddf0584a05ebfd20b23/obelisk-scalar-index-qualification-95479fb410a2/crates/obelisk-engine)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.19s
+     Running unittests src/lib.rs (target/debug/deps/obelisk_engine-2a71ea66a6c3b27a)
+
+running 1 test
+test index_race_tests::a_nonfinal_chunk_conflict_reconciles_processed_unscanned_deleted_and_new_paths ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 74 filtered out; finished in 1.07s

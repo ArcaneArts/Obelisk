@@ -8,4 +8,3 @@ test indexed_qualification_tests::maximum_live_indexes_and_a_replacement_are_mai
 test indexed_qualification_tests::indexed_open_selective_work_and_local_edits_preserve_unrelated_subtrees ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 72 filtered out; finished in 36.31s
-
