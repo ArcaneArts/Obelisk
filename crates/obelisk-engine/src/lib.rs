@@ -5,6 +5,9 @@ mod index_build;
 mod index_catalog;
 mod index_lifecycle;
 mod index_maintenance;
+mod indexed_plan;
+mod indexed_query;
+pub use indexed_query::{IndexedQueryCursor, IndexedQueryPage};
 mod limits;
 pub mod metadata;
 mod query;
@@ -41,6 +44,12 @@ pub enum Error {
     IndexStateConflict(IndexHandle),
     #[error("another index build is already in progress")]
     IndexBuildInProgress,
+    #[error("indexed query requires {required:?}: {reason} (requested index {requested:?})")]
+    IndexUnavailable {
+        required: Box<obelisk_types::IndexRequirement>,
+        requested: Option<IndexId>,
+        reason: &'static str,
+    },
     #[error("invalid query cursor: {0}")]
     InvalidCursor(&'static str),
     #[error("resource limit: {0}")]

@@ -54,8 +54,8 @@ The S3 example requires `OBELISK_S3_BUCKET` and `OBELISK_S3_PREFIX`.
 
 ## Current limits
 
-There are no field-filtered queries, compaction, garbage collection, backup/restore, or
-network protocol yet. Nothing automatically reclaims committed history, orphaned
+Scalar indexed queries are available. Compaction, garbage collection, backup/restore
+and a network protocol remain unimplemented. Nothing automatically reclaims committed history, orphaned
 uploads, or abandoned temporary files. Immutable segments grow with writes; metadata uses immutable copy-on-write B+
 pages with document, request, parent-membership and index-catalog roots. Opening reads only HEAD and a small root manifest;
 point operations load relevant pages. Total metadata is no longer limited by one
@@ -149,10 +149,67 @@ cannot cover committed indexes; they never skip maintenance.
 Scalar definitions support exact children/descendants scopes, one to eight exact
 string/integer/double/boolean components, directions and optional covered fields.
 Missing/type-mismatched components omit an entry. Covered fields retain binary and
-typed-list values in separate bounded immutable objects. Public filtered/ordered
-queries arrive in cycle 17; independent-process indexed interruption and scaling
-qualification follows in cycle 18. The v3 lifecycle does not enable reclamation,
+typed-list values in separate bounded immutable objects. Filtered/ordered queries
+use active generations as described below; expanded independent-process indexed
+interruption and scaling qualification follows in cycle 18. The v3 lifecycle does not enable reclamation,
 compaction, portable cursors or a wire protocol.
+
+## Indexed queries
+
+`IndexedQuery::new(scope, equality, range, order, projection)` validates one exact
+query shape. Equality predicates name a leading composite prefix in index-field
+order. Their `Value` determines the exact scalar type; integer and double stay
+distinct. `order` lists every remaining component with its type and direction.
+An optional `ScalarRange` applies to its first component, with included/excluded
+or unbounded endpoints. Lower/upper describe value order even for descending
+indexes. Inverted or exclusively empty ranges return empty results.
+
+Use `db.query(&query, options, cursor)` or `snapshot.query(...)`. The planner
+requires an active index with exactly the same hierarchy scope and key shape;
+extra unused key fields are rejected because they could omit missing-field
+records or change tie order. Equal scalar tuples use ascending structured document
+paths. Equality-prefix directions do not affect eligibility; remaining directions
+must match the index. There is no implicit scan, sort or incomplete-index fallback.
+`IndexUnavailable` returns the required signature, requested ID and reason.
+
+Selection uses the smallest compatible active index ID. `query.with_index(id)`
+selects a particular compatible index, for example one with needed covered fields.
+`Projection::Full` returns documents. `Projection::fields(paths)` canonicalizes
+selected fields, preserves types and omits absent fields; an empty selection returns
+empty documents with paths/revisions. Key and covered values satisfy projections
+without full payload reads. Uncovered fields fetch from the same pinned snapshot.
+Query specifications are bounded to 64 KiB and projections to 1024 field paths;
+existing index-shape, document, key and aggregate resource bounds also apply.
+
+`PageOptions` defaults to 100 results, caps at 256 and 16 MiB response bytes, and
+accepts lower limits. A result that cannot fit an empty page fails explicitly.
+Metadata lookahead determines continuation without another full payload read.
+For uncovered projections, a full-record size bound can end a page conservatively;
+the next page still permits a small projection of a large document. Pages need
+not fill their item or byte limit.
+
+`IndexedQueryPage` reports the snapshot, selected generation, results and an opaque
+native `IndexedQueryCursor`. A continuation binds canonical query/projection,
+explicit index selection, database, snapshot, generation, ordering version and
+last emitted key. Page limits may change; mismatched queries, snapshots or positions
+fail explicitly. Continuations through a reopened engine retain their original
+snapshot after writes, rebuild or drop. Cursors have no portable serialization,
+public decoder, expiration or server-side session.
+
+The facade example creates an index, advances one bounded step, closes/reopens,
+resumes, resolves/replays the original management outcome, queries, rebuilds and
+drops while continuing a pinned query:
+
+```sh
+cargo run -p obelisk --example indexed --locked -- /tmp/obelisk-indexed-v3
+```
+
+Use a fresh folder. The example can run twice there; each run has fresh management
+request IDs and replays the original document seed receipt. It builds with either
+backend alone. For an externally configured dedicated fresh S3 prefix, select
+`OBELISK_EXAMPLE_BACKEND=s3` and supply `OBELISK_S3_BUCKET` and
+`OBELISK_S3_TEST_PREFIX`, then run with `--no-default-features --features s3`.
+See S3.md for qualification requirements; compiling this example is not AWS evidence.
 
 ## Bulk reads and hierarchy discovery
 
@@ -195,8 +252,8 @@ a document too large for an empty page returns a resource error.
 through a reopened database after writes. Page size/byte budgets may change;
 query scope and kind may not. Cross-database or mismatched-snapshot tokens fail
 explicitly. Cursors have no public serialization/decoder and do not expire while
-history is retained. They need no server-side session. Filtering and field ordering
-require the subsequent scalar-index block.
+history is retained. They need no server-side session. Use the scalar-query API
+below for filtering and field ordering.
 
 Run the hierarchy facade example against a fresh v3 POSIX folder:
 

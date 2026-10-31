@@ -559,3 +559,11 @@ never query plans. Native cursors pin the snapshot and generation. Authoritative
 v3 databases will use fresh folders/prefixes with explicit rejection of v2, not
 automatic migration. The additive 16A codecs kept the v2 writer; 16B selects v3 and integrates
 both building and active maintenance before cycle 17 exposes indexed queries.
+
+
+Cycle 17 exposes exact-shape indexed queries through the facade and pinned
+snapshots, including typed prefix/range bounds, declared order, projections,
+covered reads and native snapshot cursors. Missing/incomplete indexes fail usefully
+instead of triggering implicit scans. Cycle 18 remains the independent-process,
+interruption, capacity and release-scaling qualification gate for the complete
+scalar block. Actual-AWS acceptance remains externally configured and open.

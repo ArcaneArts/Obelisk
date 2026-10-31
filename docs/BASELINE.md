@@ -337,3 +337,15 @@ the required local checks. The full v3 release matrix (100 through 100,000 docum
 zero/one/multiple indexes and a building replacement), maximum-index safety,
 large-capacity rerun and indexed process-kill suite remain cycle 18. No new latency
 or storage-amplification baseline is claimed here.
+
+
+## Indexed-query local work assertions (cycle 17)
+
+Facade reference tests compare complete paginated full/projected results for exact
+scalar queries. Logical counters prove key-only and empty projections perform no
+cover/payload reads, covered binary/list selections perform no payload reads, and
+full pages use metadata-only lookahead. A byte-limited uncovered-projection regression
+first produced five payload reads for three results; it now reads each full payload
+once by conservatively deferring the next record before fetching it. These are
+correctness/work assertions on disposable POSIX folders, not release timings or
+physical HTTP costs. The full v3 release matrix and capacity rerun remain cycle 18.

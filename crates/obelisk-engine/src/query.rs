@@ -68,7 +68,8 @@ impl Engine {
         options: PageOptions,
         cursor: Option<&QueryCursor>,
     ) -> Result<QueryPage> {
-        self.query(scope, Kind::Children, options, cursor).await
+        self.hierarchy_query(scope, Kind::Children, options, cursor)
+            .await
     }
     pub async fn descendants(
         &self,
@@ -76,9 +77,10 @@ impl Engine {
         options: PageOptions,
         cursor: Option<&QueryCursor>,
     ) -> Result<QueryPage> {
-        self.query(scope, Kind::Descendants, options, cursor).await
+        self.hierarchy_query(scope, Kind::Descendants, options, cursor)
+            .await
     }
-    async fn query(
+    async fn hierarchy_query(
         &self,
         scope: &QueryScope,
         kind: Kind,
@@ -106,7 +108,7 @@ impl Engine {
             current
         };
         snapshot
-            .query(scope, kind, options, cursor, &mut budget)
+            .hierarchy_query(scope, kind, options, cursor, &mut budget)
             .await
     }
 }
@@ -159,7 +161,7 @@ impl Snapshot {
         options: PageOptions,
         cursor: Option<&QueryCursor>,
     ) -> Result<QueryPage> {
-        self.query(
+        self.hierarchy_query(
             scope,
             Kind::Children,
             options,
@@ -174,7 +176,7 @@ impl Snapshot {
         options: PageOptions,
         cursor: Option<&QueryCursor>,
     ) -> Result<QueryPage> {
-        self.query(
+        self.hierarchy_query(
             scope,
             Kind::Descendants,
             options,
@@ -183,7 +185,7 @@ impl Snapshot {
         )
         .await
     }
-    async fn query(
+    async fn hierarchy_query(
         &self,
         scope: &QueryScope,
         kind: Kind,

@@ -20,7 +20,7 @@ Each completed cycle is committed separately. See git history for exact commits.
 - [x] 16. Root-integrated resumable index build, reconciliation and activation.
   - [x] 16A. Additive lifecycle types and bounded v3/entry/projection/outcome codecs.
   - [x] 16B. Authoritative v3 integration, lifecycle APIs and mandatory writer maintenance.
-- [ ] 17. Bounded indexed query APIs over atomically maintained generations.
+- [x] 17. Bounded indexed query APIs over atomically maintained generations.
 - [ ] 18. Index concurrency, interruption and scaling qualification.
 
 The scalar-index Task spans 16A, 16B, 17 and 18 as independently merged milestones.
@@ -136,13 +136,13 @@ filesystem or transport implementations.
 History, orphaned uploads, request outcomes, and abandoned temporary files are not
 automatically reclaimed. Paged metadata now removes whole-manifest rewrites; single-head contention and
 retained-history growth still limit the prototype. Scalar lifecycle and maintenance
-are delivered in cycle 16; indexed queries and qualification remain cycles 17–18.
+are delivered in cycle 16; scalar-index qualification remains cycle 18.
 Compaction, reclamation, backup/restore and transport remain deferred as scoped.
 
 The four query-foundation implementation milestones are complete locally.
 Actual-S3 qualification remains parallel and externally configured. Scalar-index
-lifecycle and atomic maintenance are complete in cycle 16; indexed queries and
-qualification remain cycles 17–18. Compaction/reclamation remain deferred.
+lifecycle and atomic maintenance are complete in cycle 16; scalar-index
+qualification remains cycle 18. Compaction/reclamation remain deferred.
 
 ## Query foundations cycle 11 evidence
 
@@ -516,3 +516,55 @@ release capacity workload; none ran in this milestone. The existing non-indexed
 folder multiprocess/crash suite passed in the workspace run. Expanded indexed
 independent-process/crash and release scaling/capacity evidence remains cycle 18;
 no new AWS, emulator, performance or hardware-power-loss evidence is claimed.
+
+
+## Scalar indexes cycle 17 evidence
+
+The thin facade and snapshots now execute validated indexed queries with typed
+leading equality, one compatible range, complete declared suffix ordering and
+canonical projection. Exact scope/shape matching prevents an extra unused key
+from changing eligibility or tie ordering. Choose the smallest compatible active
+index ID or an explicit ID. Structured missing/inactive/incompatible errors report
+the required signature. No document scan or in-memory sort fallback exists.
+
+Pages preserve types, omit absent projection fields and enforce item, response and
+aggregate budgets. Key-only/empty selections avoid cover and payload reads; covered
+binary and typed nested/empty-list fields avoid payload reads. Uncovered selections
+fetch the pinned document. A counter regression reproduced five full payload reads
+for three byte-limited results; conservative full-record bounds now yield exactly
+three while preserving every result. Metadata lookahead reads no extra full payload.
+The last emitted key remains the resume position when the next result is deferred.
+
+Native cursors bind canonical query/projection, optional explicit selection, snapshot,
+generation, ordering version and composite position. Original continuations survive
+updates/deletes/inserts, reopen, rebuild activation and drop. Snapshot/database/query,
+projection, generation, version, scope and nonexistent-position mismatches reject.
+Checksummed projection identity/field corruption, missing objects and unsupported
+versions fail lazily on the relevant read; entry locations must match the pinned
+location tree. No persistent format change or historical reclamation was added.
+
+Reference tests compare complete paginated documents/projections using independent
+scalar comparisons and sorting. Fixtures cover all scalar types, mixed directions,
+NUL/Unicode strings, equal tuples, missing/type-mismatched fields, escaped paths,
+missing parents, virtual roots and exact children/descendants. Generated bound
+combinations cover all four scalar types, both directions, optional equality prefix,
+suffix ties, numeric extremes, included/excluded/unbounded endpoints and empty ranges.
+Facade tests cover deterministic/explicit selection, unused-key rejection, covered-only
+updates, byte limits, low resource profiles and retained generation results.
+
+PR #11 independently merged milestone 16B. All six Linux/macOS/Windows push/PR CI
+jobs were subsequently observed passing. Primary's unrelated manifest commit remains
+preserved, so primary is not reset or rebased onto upstream. Cantrip refused 16B
+worktree removal because a chat/surface still references it; it remains clean and
+retained for safe cleanup. Cycle 17 starts from the 16B upstream merge in a separate
+worktree. Expanded indexed process-kill and release qualification remain cycle 18.
+
+Local validation on 2026-10-31: **105 workspace tests passed, five ignored**.
+All six required checks passed, as did folder-only/S3-only example builds and diff
+checks. The indexed facade example ran twice against one disposable POSIX folder,
+returning the same original seed receipt and projected results while each run
+created, resumed, rebuilt and dropped a fresh generation. The five ignored tests
+remain two actual-AWS gates, two emulator gates and the release large-capacity gate;
+none ran in this milestone. Existing folder multiprocess/hierarchy/crash tests
+passed in the workspace run. Expanded indexed subprocess and release measurements
+remain cycle 18. No new AWS, emulator or hardware-power-loss evidence is claimed.

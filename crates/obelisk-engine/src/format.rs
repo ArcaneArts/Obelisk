@@ -115,7 +115,7 @@ impl Writer {
             self.value_type(t);
         }
     }
-    fn value(&mut self, v: &Value) {
+    pub(crate) fn value(&mut self, v: &Value) {
         match v {
             Value::Binary(x) => {
                 self.byte(0);

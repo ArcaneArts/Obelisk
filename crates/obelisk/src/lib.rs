@@ -5,8 +5,8 @@
 //! indefinitely; retry uncertain writes with the same request ID and payload.
 pub use obelisk_engine::diagnostics;
 pub use obelisk_engine::{
-    EngineOptions as DatabaseOptions, Error, QueryCursor, QueryPage, ResourceLimits, Result,
-    Snapshot, SnapshotReference,
+    EngineOptions as DatabaseOptions, Error, IndexedQueryCursor, IndexedQueryPage, QueryCursor,
+    QueryPage, ResourceLimits, Result, Snapshot, SnapshotReference,
 };
 pub use obelisk_storage as storage;
 pub use obelisk_types::*;
@@ -78,6 +78,14 @@ impl Database {
         cursor: Option<&QueryCursor>,
     ) -> Result<QueryPage> {
         self.engine.descendants(scope, options, cursor).await
+    }
+    pub async fn query(
+        &self,
+        query: &IndexedQuery,
+        options: PageOptions,
+        cursor: Option<&IndexedQueryCursor>,
+    ) -> Result<IndexedQueryPage> {
+        self.engine.query(query, options, cursor).await
     }
     pub async fn snapshot(&self) -> Result<Snapshot> {
         self.engine.snapshot().await
