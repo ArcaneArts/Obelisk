@@ -4,6 +4,7 @@ mod codec;
 pub(crate) use codec::decode_outcome_budget;
 mod index;
 mod key;
+pub mod lifecycle;
 mod tree;
 pub use codec::{
     HeadRef, ObjectRef, OutcomeRef, PageRef, Root, decode_head, decode_location, decode_outcome,
@@ -77,5 +78,7 @@ pub(crate) fn charge(remaining: &mut usize, bytes: usize, what: &'static str) ->
 
 #[cfg(test)]
 mod index_tests;
+#[cfg(test)]
+mod lifecycle_tests;
 #[cfg(test)]
 mod tests;

@@ -20,7 +20,8 @@ completed cycles, actual validation, limitations, and remaining work in the docs
   Deduplicate requests before checking revision conditions; bind IDs to canonical
   operation fingerprints and retain the original receipts.
 - Never use logical paths as filesystem paths or reclaim historical/orphaned data
-  without a retention protocol. Indexes, compaction, and reclamation are deferred.
+  without a retention protocol. Scalar indexes follow the approved delivery block;
+  compaction and reclamation remain deferred.
 
 ## Delivery and validation
 
